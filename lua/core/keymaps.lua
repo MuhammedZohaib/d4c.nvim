@@ -72,7 +72,6 @@ map("n", "<leader>fd", "<cmd>Telescope diagnostics<CR>", opts)
 map("n", "<leader>lf", function() require("conform").format({ async = true }) end, opts)
 
 -- ── Git ────────────────────────────────────────────────────
-map("n", "<leader>gg", "<cmd>LazyGit<CR>", opts)
 map("n", "<leader>gh", "<cmd>Gitsigns preview_hunk<CR>", opts)
 map("n", "<leader>gb", "<cmd>Gitsigns blame_line<CR>", opts)
 map("n", "]h", "<cmd>Gitsigns next_hunk<CR>", opts)

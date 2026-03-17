@@ -1,17 +1,16 @@
-# Environment Variables for AI Features
+# Optional Environment Setup
 
-Add to your ~/.zshrc or ~/.bashrc:
+This config does not currently include an AI plugin file, so no AI env vars are required by default.
+
+## External tools used by this config
+
+Most formatters/linters are auto-managed by Mason + mason-tool-installer.
+Two non-Mason tools are still expected from your system:
 
 ```bash
-# Avante AI (Claude — recommended)
-export ANTHROPIC_API_KEY="sk-ant-..."
+# Python REPL for <leader>tp
+python3 -m pip install --user ipython
 
-# Avante AI (OpenAI — optional)
-export OPENAI_API_KEY="sk-..."
-
-# GitHub Copilot (if using copilot.lua)
-# Run :Copilot auth inside Neovim after enabling
+# Markdown preview dependency
+brew install yarn
 ```
-
-To switch AI provider in Avante, edit:
-~/.config/nvim/lua/plugins/ai.lua → change `provider = "claude"` to `"openai"`

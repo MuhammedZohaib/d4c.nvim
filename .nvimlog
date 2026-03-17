@@ -1,0 +1,10 @@
+WRN 2026-03-18T00:07:00.571 ?.98709    server_start:199: Failed to start server: operation not permitted: /var/folders/mh/_25vl83x5rl4g_4ynhb8qdn40000gn/T/nvim.mac/z0jciU/nvim.98709.0
+WRN 2026-03-18T00:07:14.504 ?.98731    server_start:199: Failed to start server: operation not permitted: /var/folders/mh/_25vl83x5rl4g_4ynhb8qdn40000gn/T/nvim.mac/vs7CWl/nvim.98731.0
+WRN 2026-03-18T00:09:07.730 ?.98810    server_start:199: Failed to start server: operation not permitted: /var/folders/mh/_25vl83x5rl4g_4ynhb8qdn40000gn/T/nvim.mac/hxNPy5/nvim.98810.0
+WRN 2026-03-18T00:09:27.382 ?.98832    server_start:199: Failed to start server: operation not permitted: /var/folders/mh/_25vl83x5rl4g_4ynhb8qdn40000gn/T/nvim.mac/BxcUUv/nvim.98832.0
+WRN 2026-03-18T00:09:31.796 ?.98853    server_start:199: Failed to start server: operation not permitted: /var/folders/mh/_25vl83x5rl4g_4ynhb8qdn40000gn/T/nvim.mac/OLpjZU/nvim.98853.0
+WRN 2026-03-18T00:10:19.559 ?.98937    server_start:199: Failed to start server: operation not permitted: /var/folders/mh/_25vl83x5rl4g_4ynhb8qdn40000gn/T/nvim.mac/ZLCTi7/nvim.98937.0
+WRN 2026-03-18T00:10:26.606 ?.98958    server_start:199: Failed to start server: operation not permitted: /var/folders/mh/_25vl83x5rl4g_4ynhb8qdn40000gn/T/nvim.mac/35Yx3A/nvim.98958.0
+WRN 2026-03-18T00:10:48.208 ?.98979    server_start:199: Failed to start server: operation not permitted: /var/folders/mh/_25vl83x5rl4g_4ynhb8qdn40000gn/T/nvim.mac/8h5DTr/nvim.98979.0
+WRN 2026-03-18T00:11:34.442 ?.99948    server_start:199: Failed to start server: operation not permitted: /var/folders/mh/_25vl83x5rl4g_4ynhb8qdn40000gn/T/nvim.mac/hHHnzn/nvim.99948.0
+WRN 2026-03-18T00:15:53.668 ?.1168     server_start:199: Failed to start server: operation not permitted: /var/folders/mh/_25vl83x5rl4g_4ynhb8qdn40000gn/T/nvim.mac/0m1UOO/nvim.1168.0

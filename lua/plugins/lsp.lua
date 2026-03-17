@@ -7,24 +7,53 @@ return {
         icons = { package_installed = "✓", package_pending = "➜", package_uninstalled = "✗" },
       },
     },
-  }
+  },
 
-  , {
-  "williamboman/mason-lspconfig.nvim",
-  dependencies = { "williamboman/mason.nvim" },
-  config = function()
-    require("mason-lspconfig").setup({
+  {
+    "williamboman/mason-lspconfig.nvim",
+    dependencies = { "williamboman/mason.nvim" },
+    opts = {
       ensure_installed = {
-        "pyright", "ts_ls", "eslint", "lua_ls",
-        "jsonls", "yamlls", "html", "cssls",
-        "tailwindcss", "dockerls",
+        "pyright",
+        "ts_ls",
+        "eslint",
+        "lua_ls",
+        "jsonls",
+        "yamlls",
+        "html",
+        "cssls",
+        "tailwindcss",
+        "dockerls",
         "docker_compose_language_service",
-        "bashls", "marksman", "graphql", "sqlls",
+        "bashls",
+        "marksman",
+        "graphql",
+        "sqlls",
       },
-      automatic_installation = true,
-    })
-  end,
-},
+    },
+  },
+
+  -- Ensure non-LSP tools are installed too (formatters/linters)
+  {
+    "WhoIsSethDaniel/mason-tool-installer.nvim",
+    dependencies = { "williamboman/mason.nvim" },
+    opts = {
+      ensure_installed = {
+        "stylua",
+        "shfmt",
+        "ruff",
+        "sqlfmt",
+        "prettier",
+        "eslint_d",
+        "hadolint",
+        "yamllint",
+        "markdownlint",
+      },
+      run_on_start = true,
+      start_delay = 3000,
+      debounce_hours = 12,
+    },
+  },
 
   -- Main LSP config
   {
@@ -33,22 +62,30 @@ return {
       "williamboman/mason.nvim",
       "williamboman/mason-lspconfig.nvim",
       "hrsh7th/cmp-nvim-lsp",
-      { "folke/neodev.nvim", opts = {} }, -- Lua + Neovim API completions
+      {
+        "folke/lazydev.nvim",
+        ft = "lua",
+        opts = {
+          library = {
+            { path = "${3rd}/luv/library", words = { "vim%.uv" } },
+          },
+        },
+      },
     },
     config = function()
-      local lspconfig    = require("lspconfig")
-      local cmp_lsp      = require("cmp_nvim_lsp")
+      local lspconfig = require("lspconfig")
+      local cmp_lsp = require("cmp_nvim_lsp")
 
-      local capabilities = cmp_lsp.default_capabilities(vim.lsp.protocol.make_client_capabilities())
+      local capabilities = cmp_lsp.default_capabilities()
 
       -- Diagnostic display
       vim.diagnostic.config({
-        virtual_text     = { prefix = "●", source = "if_many" },
-        signs            = true,
-        underline        = true,
+        virtual_text = { prefix = "●", source = "if_many" },
+        signs = true,
+        underline = true,
         update_in_insert = false,
-        severity_sort    = true,
-        float            = {
+        severity_sort = true,
+        float = {
           border = "rounded",
           source = "always",
           header = "",
@@ -79,19 +116,9 @@ return {
         bmap("n", "<leader>lr", vim.lsp.buf.rename, "Rename Symbol")
         bmap({ "n", "v" }, "<leader>la", vim.lsp.buf.code_action, "Code Action")
         bmap("n", "<leader>li", "<cmd>LspInfo<CR>", "LSP Info")
-
-        -- Auto-format on save for some servers
-        if client.supports_method("textDocument/formatting") then
-          vim.api.nvim_create_autocmd("BufWritePre", {
-            buffer   = bufnr,
-            callback = function()
-              require("conform").format({ bufnr = bufnr, async = false, timeout_ms = 3000 })
-            end,
-          })
-        end
       end
 
-      -- Default handler for all servers
+      -- Shared defaults for all servers
       local default = { capabilities = capabilities, on_attach = on_attach }
 
       -- Server-specific settings
@@ -134,17 +161,34 @@ return {
             },
           },
         },
+        eslint = {},
+        jsonls = {},
+        html = {},
+        cssls = {},
+        tailwindcss = {},
+        dockerls = {},
+        docker_compose_language_service = {},
+        bashls = {},
+        marksman = {},
+        graphql = {},
+        sqlls = {},
       }
 
-      -- Set up each server
-      require("mason-lspconfig").setup({
-        handlers = {
-          function(server_name)
-            local server_opts = vim.tbl_deep_extend("force", default, servers[server_name] or {})
-            lspconfig[server_name].setup(server_opts)
-          end,
-        },
-      })
+      local setup_server = function(server_name, server_opts)
+        local opts = vim.tbl_deep_extend("force", {}, default, server_opts or {})
+        if vim.lsp.config and vim.lsp.enable then
+          vim.lsp.config(server_name, opts)
+          vim.lsp.enable(server_name)
+          return
+        end
+        if lspconfig[server_name] then
+          lspconfig[server_name].setup(opts)
+        end
+      end
+
+      for server_name, server_opts in pairs(servers) do
+        setup_server(server_name, server_opts)
+      end
     end,
   },
 

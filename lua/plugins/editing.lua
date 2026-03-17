@@ -51,7 +51,7 @@ return {
         { "<leader>h",  group = "Git Hunks"      },
         { "<leader>t",  group = "Terminal/REPL"  },
         { "<leader>s",  group = "Split"          },
-        { "<leader>a",  group = "AI Assistant"   },
+        { "<leader>p",  group = "Persistence"    },
         { "<leader>x",  group = "Trouble/Diag"   },
       },
     },
@@ -83,9 +83,6 @@ return {
       { "[t",  function() require("todo-comments").jump_prev() end, desc = "Prev Todo" },
     },
   },
-
-  -- Auto close/rename HTML/JSX tags
-  { "windwp/nvim-ts-autotag", event = "InsertEnter", opts = {} },
 
   -- Smooth scrolling
   { "karb94/neoscroll.nvim", event = "VeryLazy", opts = { mappings = { "<C-u>", "<C-d>", "<C-b>", "<C-f>" } } },

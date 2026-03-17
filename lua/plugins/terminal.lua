@@ -28,15 +28,6 @@ return {
       -- Dedicated terminal shortcuts
       local Terminal = require("toggleterm.terminal").Terminal
 
-      -- Lazygit in a float
-      local lazygit = Terminal:new({
-        cmd       = "lazygit",
-        hidden    = true,
-        direction = "float",
-        float_opts = { border = "double" },
-      })
-      vim.keymap.set("n", "<leader>gg", function() lazygit:toggle() end, { desc = "LazyGit" })
-
       -- Python REPL
       local ipython = Terminal:new({ cmd = "ipython", direction = "horizontal", hidden = true })
       vim.keymap.set("n", "<leader>tp", function() ipython:toggle() end, { desc = "IPython REPL" })
