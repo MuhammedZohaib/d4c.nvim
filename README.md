@@ -58,13 +58,17 @@ require("core.lazy")   -- Plugin manager bootstrap
 | `ripgrep`                                 | Telescope live grep        |
 | `node` + `npm`                            | Some LSP servers via Mason |
 | `ipython`                                 | Python REPL (`<leader>tp`) |
+| `pynvim`                                  | Python provider health     |
 | `yarn`                                    | Markdown preview           |
 
-Install the two non-Mason tools:
+Install the non-Mason tools:
 
 ```bash
 # Python REPL
 python3 -m pip install --user ipython
+
+# Neovim Python provider (:checkhealth vim.provider)
+python3 -m pip install --user pynvim
 
 # Markdown preview
 brew install yarn
@@ -88,6 +92,15 @@ nvim
 ```
 
 On first open, `lazy.nvim` will self-install and pull all plugins. Mason will then auto-install the configured LSP servers, formatters, and linters.
+
+Then run:
+
+```vim
+:Lazy sync
+:MasonToolsInstall
+:TSUpdate
+:checkhealth
+```
 
 ---
 
@@ -199,7 +212,7 @@ On first open, `lazy.nvim` will self-install and pull all plugins. Mason will th
 
 ## Environment
 
-Most tools are auto-managed. See [`ENV_SETUP.md`](./ENV_SETUP.md) for the two external dependencies and notes on optional AI plugin setup.
+This config does not currently include an AI plugin, so no AI environment variables are required by default.
 
 ---
 
