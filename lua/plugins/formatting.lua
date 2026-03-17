@@ -19,7 +19,7 @@ return {
         lua        = { "stylua" },
         sh         = { "shfmt" },
         bash       = { "shfmt" },
-        sql        = { "sqlfmt" },
+        sql        = { "sqlfmt", lsp_format = "prefer" },
       },
       format_on_save = {
         timeout_ms = 3000,
