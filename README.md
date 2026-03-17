@@ -1,24 +1,14 @@
 <div align="center">
 
-```
- ____  _  _    ____     ____  _  _  _  _  __  __
-|  _ \| || |  / ___|   |  _ \| || || || ||  \/  |
-| | | | || |_| |       | | | | || || || || |\/| |
-| |_| |__   _| |___    | |_| |__   _||__||_|  |_|
-|____/   |_|  \____|   |____/   |_|  .__/
-                                    |_|
-```
+# ✦ d4c.nvim
 
-# d4c.nvim
+**Dirty Deeds Done Dirt Cheap.**
+_A modular Neovim config that works in every dimension._
 
-> _"Dirty Deeds Done Dirt Cheap — and this config hops between machines like Valentine crosses dimensions."_
-
-**A modular, minimal Neovim config built to work everywhere. No cruft. No compromises.**
-
-![Neovim](https://img.shields.io/badge/Neovim-0.10+-57A143?style=flat-square&logo=neovim&logoColor=white)
-![Lua](https://img.shields.io/badge/Lua-5.1-2C2D72?style=flat-square&logo=lua&logoColor=white)
-![Plugin Manager](https://img.shields.io/badge/Plugin%20Manager-lazy.nvim-fb4d3d?style=flat-square)
-![Theme](https://img.shields.io/badge/Theme-Catppuccin-cba6f7?style=flat-square)
+[![Neovim](https://img.shields.io/badge/nvim-0.10+-57A143?style=flat-square&logo=neovim&logoColor=white)](https://neovim.io)
+[![Lua](https://img.shields.io/badge/lua-5.1-2C2D72?style=flat-square&logo=lua&logoColor=white)](https://lua.org)
+[![lazy.nvim](https://img.shields.io/badge/plugin_manager-lazy.nvim-fb4d3d?style=flat-square)](https://github.com/folke/lazy.nvim)
+[![catppuccin](https://img.shields.io/badge/theme-catppuccin-cba6f7?style=flat-square)](https://github.com/catppuccin/nvim)
 
 </div>
 
@@ -28,190 +18,60 @@
 
 ```
 ~/.config/nvim/
-├── init.lua              ← Entry point. Loads the four core modules.
-└── lua/
-    └── core/
-        ├── options.lua   ← Editor settings
-        ├── keymaps.lua   ← Key bindings
-        ├── autocmds.lua  ← Auto commands
-        └── lazy.lua      ← Plugin manager bootstrap + plugin specs
-```
-
-`init.lua` does one thing — require the four core modules in order:
-
-```lua
-require("core.options")
-require("core.keymaps")
-require("core.autocmds")
-require("core.lazy")   -- Plugin manager bootstrap
+├── init.lua          ← loads the four core modules
+└── lua/core/
+    ├── options.lua   ← editor settings
+    ├── keymaps.lua   ← key bindings
+    ├── autocmds.lua  ← autocommands
+    └── lazy.lua      ← plugin bootstrap & specs
 ```
 
 ---
 
-## Requirements
-
-| Dependency                                | Purpose                    |
-| ----------------------------------------- | -------------------------- |
-| Neovim ≥ 0.10                             | Required                   |
-| Git                                       | Plugin installation        |
-| A [Nerd Font](https://www.nerdfonts.com/) | Icons throughout the UI    |
-| `ripgrep`                                 | Telescope live grep        |
-| `node` + `npm`                            | Some LSP servers via Mason |
-| `ipython`                                 | Python REPL (`<leader>tp`) |
-| `pynvim`                                  | Python provider health     |
-| `yarn`                                    | Markdown preview           |
-
-Install the non-Mason tools:
+## Install
 
 ```bash
-# Python REPL
-python3 -m pip install --user ipython
-
-# Neovim Python provider (:checkhealth vim.provider)
-python3 -m pip install --user pynvim
-
-# Markdown preview
-brew install yarn
-```
-
-Everything else — formatters, linters, LSP servers — is handled automatically by **Mason** on first launch.
-
----
-
-## Installation
-
-```bash
-# Back up existing config if needed
+# back up if needed
 mv ~/.config/nvim ~/.config/nvim.bak
 
-# Clone the repo
+# clone
 git clone https://github.com/MuhammedZohaib/d4c.nvim ~/.config/nvim
 
-# Launch Neovim — lazy.nvim bootstraps itself and installs all plugins
+# open nvim — lazy.nvim self-installs, then Mason handles the rest
 nvim
 ```
 
-On first open, `lazy.nvim` will self-install and pull all plugins. Mason will then auto-install the configured LSP servers, formatters, and linters.
+**Hard deps** — install these manually, everything else is auto-managed by Mason:
 
-Then run:
-
-```vim
-:Lazy sync
-:MasonToolsInstall
-:TSUpdate
-:checkhealth
+```bash
+python3 -m pip install --user ipython  # python REPL  (<leader>tp)
+brew install yarn                       # markdown preview
 ```
+
+Also make sure you have: `git`, `ripgrep`, `node/npm`, and a [Nerd Font](https://www.nerdfonts.com/).
 
 ---
 
 ## Plugins
 
-### UI & Aesthetics
+**57 plugins** managed by `lazy.nvim`, grouped by what they do:
 
-| Plugin                  | Role                                      |
-| ----------------------- | ----------------------------------------- |
-| `catppuccin`            | Colorscheme                               |
-| `lualine.nvim`          | Statusline                                |
-| `bufferline.nvim`       | Buffer tabs                               |
-| `dashboard-nvim`        | Startup screen                            |
-| `noice.nvim`            | Replaces cmdline, messages, and popupmenu |
-| `nvim-notify`           | Notification UI                           |
-| `dressing.nvim`         | Improved `vim.ui.select` / `vim.ui.input` |
-| `indent-blankline.nvim` | Indent guides                             |
-| `nvim-colorizer.lua`    | Inline hex color preview                  |
-| `nvim-web-devicons`     | File type icons                           |
-| `neoscroll.nvim`        | Smooth scrolling                          |
+`catppuccin` · `lualine` · `bufferline` · `dashboard-nvim` · `noice.nvim` · `nvim-notify` · `dressing.nvim` · `indent-blankline` · `nvim-colorizer`
 
-### Navigation & Search
+`telescope.nvim` · `telescope-fzf-native` · `neo-tree.nvim` · `flash.nvim` · `nvim-spectre` · `nvim-bqf`
 
-| Plugin                      | Role                         |
-| --------------------------- | ---------------------------- |
-| `telescope.nvim`            | Fuzzy finder                 |
-| `telescope-fzf-native.nvim` | FZF sorter for Telescope     |
-| `telescope-ui-select.nvim`  | Telescope as `vim.ui.select` |
-| `neo-tree.nvim`             | File explorer                |
-| `flash.nvim`                | Jump/search motions          |
-| `nvim-spectre`              | Project-wide find & replace  |
-| `nvim-bqf`                  | Better quickfix list         |
+`nvim-lspconfig` · `mason.nvim` · `mason-lspconfig` · `lspsaga.nvim` · `nvim-cmp` · `LuaSnip` · `friendly-snippets` · `lspkind`
 
-### LSP & Completion
+`nvim-treesitter` · `treesitter-context` · `treesitter-textobjects` · `nvim-ts-autotag`
 
-| Plugin                      | Role                                  |
-| --------------------------- | ------------------------------------- |
-| `nvim-lspconfig`            | LSP client configuration              |
-| `mason.nvim`                | LSP/formatter/linter installer        |
-| `mason-lspconfig.nvim`      | Mason ↔ lspconfig bridge              |
-| `mason-tool-installer.nvim` | Auto-installs tools on startup        |
-| `lspsaga.nvim`              | Enhanced LSP UI (hover, rename, etc.) |
-| `lazydev.nvim`              | Lua API completions for Neovim config |
-| `lspkind.nvim`              | VSCode-style pictograms in completion |
-| `nvim-cmp`                  | Completion engine                     |
-| `cmp-nvim-lsp`              | LSP source                            |
-| `cmp-buffer`                | Buffer words source                   |
-| `cmp-path`                  | Filesystem path source                |
-| `cmp-cmdline`               | Cmdline source                        |
-| `cmp_luasnip`               | Snippet source                        |
-| `LuaSnip`                   | Snippet engine                        |
-| `friendly-snippets`         | Snippet collection                    |
+`conform.nvim` · `nvim-lint` · `gitsigns.nvim` · `lazygit.nvim` · `git-conflict.nvim`
 
-### Treesitter
-
-| Plugin                        | Role                                 |
-| ----------------------------- | ------------------------------------ |
-| `nvim-treesitter`             | Syntax highlighting & parsing        |
-| `nvim-treesitter-context`     | Sticky function/class context at top |
-| `nvim-treesitter-textobjects` | Select/move by syntax node           |
-| `nvim-ts-autotag`             | Auto close/rename HTML tags          |
-
-### Formatting & Linting
-
-| Plugin         | Role             |
-| -------------- | ---------------- |
-| `conform.nvim` | Formatter runner |
-| `nvim-lint`    | Linter runner    |
-
-### Git
-
-| Plugin              | Role                                   |
-| ------------------- | -------------------------------------- |
-| `gitsigns.nvim`     | Git signs in the gutter                |
-| `lazygit.nvim`      | LazyGit in a terminal float            |
-| `git-conflict.nvim` | Merge conflict highlights & resolution |
-
-### Editing
-
-| Plugin               | Role                                   |
-| -------------------- | -------------------------------------- |
-| `nvim-autopairs`     | Auto-close brackets/quotes             |
-| `nvim-surround`      | Add/change/delete surroundings         |
-| `Comment.nvim`       | Toggle comments                        |
-| `nvim-ufo`           | Folding with LSP/Treesitter providers  |
-| `todo-comments.nvim` | Highlight & search `TODO`, `FIX`, etc. |
-| `undotree`           | Visual undo history                    |
-| `zen-mode.nvim`      | Distraction-free writing               |
-
-### Terminal & Sessions
-
-| Plugin             | Role                       |
-| ------------------ | -------------------------- |
-| `toggleterm.nvim`  | Persistent terminal panels |
-| `persistence.nvim` | Auto session save/restore  |
-
-### Utilities
-
-| Plugin                  | Role                             |
-| ----------------------- | -------------------------------- |
-| `which-key.nvim`        | Keybind popup                    |
-| `trouble.nvim`          | Diagnostics list panel           |
-| `markdown-preview.nvim` | Live Markdown preview in browser |
-| `promise-async`         | Async utility (used by nvim-ufo) |
-| `plenary.nvim`          | Lua utility library              |
-| `nui.nvim`              | UI component library             |
+`nvim-autopairs` · `nvim-surround` · `Comment.nvim` · `nvim-ufo` · `todo-comments` · `undotree` · `zen-mode.nvim` · `toggleterm.nvim` · `persistence.nvim` · `which-key.nvim` · `trouble.nvim` · `markdown-preview.nvim`
 
 ---
 
 <div align="center">
 
-_"The thing about D4C is — it works in every world."_
+_"The thing about D4C — it works in every world."_
 
 </div>
