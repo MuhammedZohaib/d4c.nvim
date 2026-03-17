@@ -210,12 +210,6 @@ Then run:
 
 ---
 
-## Environment
-
-This config does not currently include an AI plugin, so no AI environment variables are required by default.
-
----
-
 <div align="center">
 
 _"The thing about D4C is — it works in every world."_
