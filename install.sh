@@ -1,59 +1,91 @@
 #!/usr/bin/env bash
 # =============================================================================
 #  d4c — Full Dev Environment Installer
-#  Covers: Neovim (d4c.nvim) · Zsh + Oh My Zsh · tmux + TPM
-#  Targets: macOS (Homebrew) · Debian/Ubuntu/Kali · Arch/Manjaro · Fedora/RHEL
-#  Repo: https://github.com/MuhammedZohaib/d4c.nvim
+#  Neovim (d4c.nvim) · Zsh + Oh My Zsh · tmux + TPM · Nerd Fonts
+#  macOS · Debian/Ubuntu/Kali · Arch · Fedora · WSL
+#  github.com/MuhammedZohaib/d4c.nvim
 # =============================================================================
 
 set -euo pipefail
 
-# ── ANSI Colors ───────────────────────────────────────────────────────────────
+# ── Colors ────────────────────────────────────────────────────────────────────
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
 CYAN='\033[0;36m'; MAGENTA='\033[0;35m'; BOLD='\033[1m'; DIM='\033[2m'
 RESET='\033[0m'
 
-# ── Logging ───────────────────────────────────────────────────────────────────
 step()    { echo -e "\n${MAGENTA}${BOLD}>> $*${RESET}"; }
 info()    { echo -e "  ${CYAN}${BOLD}->${RESET} $*"; }
-success() { echo -e "  ${GREEN}${BOLD}OK${RESET} $*"; }
+ok()      { echo -e "  ${GREEN}${BOLD}OK${RESET} $*"; }
 warn()    { echo -e "  ${YELLOW}${BOLD}!!${RESET}  $*"; }
 error()   { echo -e "  ${RED}${BOLD}XX${RESET}  $*" >&2; exit 1; }
 has()     { command -v "$1" &>/dev/null; }
 
-backup_file() {
-  local target="$1"
-  [[ -e "$target" ]] && mv "$target" "${target}.bak.${BACKUP_TS}" \
-    && warn "Backed up: ${target} -> ${target}.bak.${BACKUP_TS}"
+BACKUP_TS="$(date +%Y%m%d_%H%M%S)"
+
+bak() {
+  [[ -e "$1" ]] \
+    && mv "$1" "${1}.bak.${BACKUP_TS}" \
+    && warn "Backed up $1 -> ${1}.bak.${BACKUP_TS}" \
+    || true
 }
 
-BACKUP_TS="$(date +%Y%m%d_%H%M%S)"
+# ── Resolve real invoking user (survives sudo) ────────────────────────────────
+if   [[ -n "${SUDO_USER:-}" ]];                        then REAL_USER="$SUDO_USER"
+elif [[ -n "${USER:-}" ]] && [[ "$USER" != "root" ]];  then REAL_USER="$USER"
+else REAL_USER="$(logname 2>/dev/null || whoami)"; fi
+
+REAL_HOME="$(getent passwd "$REAL_USER" 2>/dev/null | cut -d: -f6)"
+[[ -z "$REAL_HOME" || ! -d "$REAL_HOME" ]] && REAL_HOME="$(eval echo ~"${REAL_USER}")"
+
+export HOME="$REAL_HOME"
+export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-${REAL_HOME}/.config}"
+export XDG_DATA_HOME="${XDG_DATA_HOME:-${REAL_HOME}/.local/share}"
+export XDG_CACHE_HOME="${XDG_CACHE_HOME:-${REAL_HOME}/.cache}"
+export XDG_STATE_HOME="${XDG_STATE_HOME:-${REAL_HOME}/.local/state}"
+
+# Drop to real user for commands that must not run as root
+run_as() {
+  if [[ "$EUID" -eq 0 && "$REAL_USER" != "root" ]]; then
+    sudo -u "$REAL_USER" env \
+      HOME="$REAL_HOME" \
+      XDG_CONFIG_HOME="$XDG_CONFIG_HOME" \
+      XDG_DATA_HOME="$XDG_DATA_HOME" \
+      XDG_CACHE_HOME="$XDG_CACHE_HOME" \
+      PATH="$PATH" "$@"
+  else
+    "$@"
+  fi
+}
 
 # ── Banner ────────────────────────────────────────────────────────────────────
 clear
 echo -e "${CYAN}${BOLD}"
-echo "  d4c -- Full Dev Environment Installer"
-echo "  Neovim + Oh My Zsh + tmux + Nerd Fonts"
+echo "  d4c — Full Dev Environment"
+echo "  Neovim · Zsh · Oh My Zsh · tmux · Nerd Fonts"
 echo "  github.com/MuhammedZohaib/d4c.nvim"
 echo -e "${RESET}"
 echo ""
 
-# ── Root guard ────────────────────────────────────────────────────────────────
 if [[ "$EUID" -eq 0 ]]; then
-  warn "Running as root -- configs will install to /root."
-  read -rp "  Continue anyway? [y/N] " _yn
+  warn "Running as root. Installing configs to: ${REAL_HOME} (user: ${REAL_USER})"
+  read -rp "  Continue? [y/N] " _yn
   [[ "$_yn" =~ ^[Yy]$ ]] || exit 1
 fi
 
-# =============================================================================
-# 1. OS + PACKAGE MANAGER DETECTION
-# =============================================================================
-step "Detecting OS and package manager"
+info "User: ${REAL_USER}  Home: ${REAL_HOME}"
 
-OS="unknown"
-PKG_MGR=""
-PKG_UPDATE=""
-PKG_INSTALL=""
+# ── Detect WSL ────────────────────────────────────────────────────────────────
+IS_WSL=false
+[[ -n "${WSL_DISTRO_NAME:-}" ]] \
+  || grep -qi microsoft /proc/version 2>/dev/null \
+  && IS_WSL=true || true
+
+# =============================================================================
+# 1. OS + PACKAGE MANAGER
+# =============================================================================
+step "Detecting OS"
+
+OS=""; PKG_UPDATE=""; PKG_INSTALL=""
 
 case "$(uname -s)" in
   Darwin)
@@ -63,314 +95,146 @@ case "$(uname -s)" in
       /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
       [[ -f /opt/homebrew/bin/brew ]] && eval "$(/opt/homebrew/bin/brew shellenv)"
     fi
-    PKG_MGR="brew"
     PKG_UPDATE="brew update"
     PKG_INSTALL="brew install"
     ;;
   Linux)
-    if [[ -f /etc/os-release ]]; then
-      # shellcheck disable=SC1091
-      . /etc/os-release
-      case "${ID:-}" in
-        debian|ubuntu|kali|linuxmint|pop)
-          OS="debian"
-          PKG_MGR="apt"
-          PKG_UPDATE="sudo apt-get update -y"
-          PKG_INSTALL="sudo apt-get install -y"
-          ;;
-        arch|manjaro|endeavouros|garuda)
-          OS="arch"
-          PKG_MGR="pacman"
-          PKG_UPDATE="sudo pacman -Sy --noconfirm"
-          PKG_INSTALL="sudo pacman -S --noconfirm --needed"
-          ;;
-        fedora|rhel|centos|rocky|alma|ol)
-          OS="fedora"
-          PKG_MGR="dnf"
-          PKG_UPDATE="sudo dnf check-update -y || true"
-          PKG_INSTALL="sudo dnf install -y"
-          ;;
-        *)
-          warn "Unknown distro '${ID:-}' -- falling back to apt"
-          OS="debian"
-          PKG_MGR="apt"
-          PKG_UPDATE="sudo apt-get update -y"
-          PKG_INSTALL="sudo apt-get install -y"
-          ;;
-      esac
-    else
-      error "Cannot detect Linux distro -- /etc/os-release missing."
-    fi
+    [[ -f /etc/os-release ]] && . /etc/os-release || true
+    case "${ID:-}" in
+      debian|ubuntu|kali|linuxmint|pop)
+        OS="debian"
+        PKG_UPDATE="sudo apt-get update -y"
+        PKG_INSTALL="sudo apt-get install -y"
+        ;;
+      arch|manjaro|endeavouros|garuda)
+        OS="arch"
+        PKG_UPDATE="sudo pacman -Sy --noconfirm"
+        PKG_INSTALL="sudo pacman -S --noconfirm --needed"
+        ;;
+      fedora|rhel|centos|rocky|alma)
+        OS="fedora"
+        PKG_UPDATE="sudo dnf check-update -y || true"
+        PKG_INSTALL="sudo dnf install -y"
+        ;;
+      *)
+        warn "Unknown distro '${ID:-}' — defaulting to apt"
+        OS="debian"
+        PKG_UPDATE="sudo apt-get update -y"
+        PKG_INSTALL="sudo apt-get install -y"
+        ;;
+    esac
     ;;
-  *)
-    error "Unsupported OS: $(uname -s)"
-    ;;
+  *) error "Unsupported OS: $(uname -s)" ;;
 esac
 
-# Detect WSL
-IS_WSL=false
-if [[ -n "${WSL_DISTRO_NAME:-}" ]] || grep -qi microsoft /proc/version 2>/dev/null; then
-  IS_WSL=true
-fi
-
-success "OS: ${OS} | Package manager: ${PKG_MGR} | WSL: ${IS_WSL}"
+ok "OS: ${OS} | WSL: ${IS_WSL}"
 
 # =============================================================================
-# 2. SYSTEM DEPENDENCIES
+# 2. SYSTEM DEPS
 # =============================================================================
 step "Installing system dependencies"
 
-info "Updating package index..."
 eval "$PKG_UPDATE" &>/dev/null || true
 
 case "$OS" in
   macos)
-    DEPS=(git curl wget unzip tar make gcc cmake ripgrep fd node python3
-          luarocks tmux zsh fontconfig)
-    $PKG_INSTALL "${DEPS[@]}" 2>/dev/null || warn "Some brew packages failed."
+    $PKG_INSTALL git curl wget unzip tar make gcc cmake \
+      ripgrep fd node python3 luarocks tmux zsh fontconfig \
+      2>/dev/null || warn "Some brew packages failed."
     ;;
   debian)
-    DEPS=(
-      git curl wget unzip tar make gcc g++ cmake
-      ripgrep fd-find
-      nodejs npm
-      python3 python3-pip python3-venv
-      luarocks
-      tmux
-      zsh zsh-syntax-highlighting zsh-autosuggestions
-      xclip xsel
-      fontconfig
-      build-essential
-    )
-    $PKG_INSTALL "${DEPS[@]}" 2>/dev/null || warn "Some apt packages failed."
-    # Debian/Ubuntu ship fd as fdfind -- create a symlink
+    $PKG_INSTALL git curl wget unzip tar make gcc g++ cmake \
+      ripgrep fd-find nodejs npm \
+      python3 python3-pip python3-venv \
+      luarocks tmux zsh \
+      xclip xsel fontconfig build-essential \
+      2>/dev/null || warn "Some apt packages failed."
     if has fdfind && ! has fd; then
-      mkdir -p "$HOME/.local/bin"
-      ln -sf "$(which fdfind)" "$HOME/.local/bin/fd"
+      mkdir -p "$REAL_HOME/.local/bin"
+      ln -sf "$(which fdfind)" "$REAL_HOME/.local/bin/fd"
       info "Linked fdfind -> fd"
     fi
     ;;
   arch)
-    DEPS=(
-      git curl wget unzip tar make gcc cmake
-      ripgrep fd nodejs npm
-      python python-pip luarocks
-      tmux
-      zsh zsh-syntax-highlighting zsh-autosuggestions
-      xclip xsel wl-clipboard
-      fontconfig base-devel
-    )
-    $PKG_INSTALL "${DEPS[@]}" 2>/dev/null || warn "Some pacman packages failed."
+    $PKG_INSTALL git curl wget unzip tar make gcc cmake \
+      ripgrep fd nodejs npm python python-pip luarocks \
+      tmux zsh xclip xsel wl-clipboard fontconfig base-devel \
+      2>/dev/null || warn "Some pacman packages failed."
     ;;
   fedora)
-    DEPS=(
-      git curl wget unzip tar make gcc gcc-c++ cmake
-      ripgrep fd-find nodejs npm
-      python3 python3-pip luarocks
-      tmux zsh xclip xsel fontconfig
-    )
-    $PKG_INSTALL "${DEPS[@]}" 2>/dev/null || warn "Some dnf packages failed."
+    $PKG_INSTALL git curl wget unzip tar make gcc gcc-c++ cmake \
+      ripgrep fd-find nodejs npm python3 python3-pip luarocks \
+      tmux zsh xclip xsel fontconfig \
+      2>/dev/null || warn "Some dnf packages failed."
     ;;
 esac
 
-success "System dependencies done."
+ok "System deps done."
 
 # =============================================================================
 # 3. NEOVIM
 # =============================================================================
-step "Installing Neovim (>= 0.9.0)"
+step "Installing Neovim (>= 0.9)"
 
-NVIM_MIN="0.9.0"
-
-version_gte() {
-  printf '%s\n%s\n' "$2" "$1" | sort -V -C
-}
+version_gte() { printf '%s\n%s\n' "$2" "$1" | sort -V -C; }
 
 _need_nvim=true
 if has nvim; then
-  NVIM_VER=$(nvim --version | head -1 | grep -oP '\d+\.\d+\.\d+' | head -1 || echo "0.0.0")
-  if version_gte "$NVIM_VER" "$NVIM_MIN"; then
-    success "Neovim ${NVIM_VER} already satisfies minimum ${NVIM_MIN}."
+  _ver=$(nvim --version 2>/dev/null | head -1 | grep -oP '\d+\.\d+\.\d+' | head -1 || echo "0.0.0")
+  if version_gte "$_ver" "0.9.0" && [[ "$IS_WSL" == "false" ]]; then
+    ok "Neovim ${_ver} already installed."
     _need_nvim=false
   else
-    warn "Neovim ${NVIM_VER} is below minimum ${NVIM_MIN} -- upgrading."
+    warn "WSL detected or version too old (${_ver}) — reinstalling Neovim."
   fi
 fi
 
 if [[ "$_need_nvim" == "true" ]]; then
-  mkdir -p "$HOME/.local/bin"
+  mkdir -p "$REAL_HOME/.local/bin"
   case "$OS" in
-    macos)
-      brew install neovim
-      ;;
-    arch)
-      $PKG_INSTALL neovim
-      ;;
+    macos) brew install neovim ;;
+    arch)  $PKG_INSTALL neovim ;;
     debian|fedora)
-      NVIM_BIN="$HOME/.local/bin/nvim"
+      _appimage="/tmp/nvim.appimage"
       curl -fsSL \
         "https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.appimage" \
-        -o "$NVIM_BIN"
-      chmod +x "$NVIM_BIN"
-      sudo ln -sf "$NVIM_BIN" /usr/local/bin/nvim 2>/dev/null || true
+        -o "$_appimage"
+      chmod +x "$_appimage"
+      if [[ "$IS_WSL" == "true" ]]; then
+        info "WSL: extracting AppImage (no FUSE needed)..."
+        rm -rf /tmp/squashfs-root
+        cd /tmp && "$_appimage" --appimage-extract &>/dev/null
+        rm -rf "$REAL_HOME/.local/nvim"
+        mv /tmp/squashfs-root "$REAL_HOME/.local/nvim"
+        ln -sf "$REAL_HOME/.local/nvim/AppRun" "$REAL_HOME/.local/bin/nvim"
+      else
+        cp "$_appimage" "$REAL_HOME/.local/bin/nvim"
+      fi
+      sudo ln -sf "$REAL_HOME/.local/bin/nvim" /usr/local/bin/nvim 2>/dev/null || true
+      rm -f "$_appimage"
       ;;
   esac
-  success "Neovim installed."
+  ok "Neovim installed."
 fi
 
 # =============================================================================
-# 4. NODE + PYTHON TOOLS
-# =============================================================================
-step "Installing Node.js and Python tools"
-
-info "npm globals (LSP servers, formatters)..."
-sudo npm install -g --quiet \
-  neovim \
-  tree-sitter-cli \
-  typescript \
-  typescript-language-server \
-  vscode-langservers-extracted \
-  "@fsouza/prettierd" \
-  bash-language-server \
-  2>/dev/null || warn "Some npm packages failed."
-
-info "pip packages (Neovim provider, formatters)..."
-pip3 install --user --quiet --upgrade \
-  pynvim neovim black isort ruff \
-  2>/dev/null || warn "Some pip packages failed."
-
-success "Node + Python tools done."
-
-# =============================================================================
-# 5. LAZYGIT
-# =============================================================================
-step "Installing lazygit"
-
-if has lazygit; then
-  success "lazygit already installed."
-else
-  case "$OS" in
-    macos) brew install lazygit ;;
-    arch)  $PKG_INSTALL lazygit ;;
-    *)
-      LG_VER=$(curl -fsSL https://api.github.com/repos/jesseduffield/lazygit/releases/latest \
-        | grep '"tag_name"' | sed -E 's/.*"v?([^"]+)".*/\1/')
-      LG_URL="https://github.com/jesseduffield/lazygit/releases/latest/download/lazygit_${LG_VER}_Linux_x86_64.tar.gz"
-      curl -fsSL "$LG_URL" | tar xz -C /tmp lazygit
-      sudo install /tmp/lazygit /usr/local/bin/lazygit
-      ;;
-  esac
-  success "lazygit installed."
-fi
-
-# =============================================================================
-# 6. NERD FONT -- JetBrainsMono
-# =============================================================================
-step "Installing JetBrainsMono Nerd Font"
-
-_install_nerd_font_linux() {
-  local FONT_DIR="$HOME/.local/share/fonts/JetBrainsMono"
-  if fc-list 2>/dev/null | grep -qi "JetBrainsMono Nerd"; then
-    success "JetBrainsMono Nerd Font already present."
-    return
-  fi
-  mkdir -p "$FONT_DIR"
-  curl -fsSL \
-    "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.tar.xz" \
-    | tar xJ -C "$FONT_DIR" 2>/dev/null \
-    && fc-cache -f "$FONT_DIR" \
-    && success "JetBrainsMono Nerd Font installed." \
-    || warn "Font download failed -- visit https://nerdfonts.com"
-}
-
-_install_nerd_font_mac() {
-  if ls ~/Library/Fonts/JetBrainsMonoNerd* &>/dev/null 2>&1; then
-    success "JetBrainsMono Nerd Font already present."
-    return
-  fi
-  brew install --cask font-jetbrains-mono-nerd-font 2>/dev/null \
-    && success "JetBrainsMono Nerd Font installed." \
-    || warn "Font install failed -- visit https://nerdfonts.com"
-}
-
-if [[ "$OS" == "macos" ]]; then
-  _install_nerd_font_mac
-else
-  _install_nerd_font_linux
-fi
-
-# =============================================================================
-# 7. ZSH + OH MY ZSH
-# =============================================================================
-step "Setting up Zsh + Oh My Zsh"
-
-# 7a. Ensure zsh installed
-if ! has zsh; then
-  info "Installing zsh..."
-  $PKG_INSTALL zsh
-fi
-success "zsh: $(zsh --version)"
-
-# 7b. Install Oh My Zsh (unattended, no shell change yet)
-OMZ_DIR="$HOME/.oh-my-zsh"
-if [[ -d "$OMZ_DIR" ]]; then
-  success "Oh My Zsh already present."
-else
-  info "Installing Oh My Zsh..."
-  RUNZSH=no CHSH=no KEEP_ZSHRC=yes \
-    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" \
-    2>/dev/null || warn "OMZ install had issues -- check manually."
-  success "Oh My Zsh installed."
-fi
-
-# 7c. Install ZSH plugins
-ZSH_CUSTOM="${ZSH_CUSTOM:-${OMZ_DIR}/custom}"
-mkdir -p "${ZSH_CUSTOM}/plugins" "${ZSH_CUSTOM}/themes"
-
-_install_zsh_plugin() {
-  local name="$1" url="$2"
-  local dest="${ZSH_CUSTOM}/plugins/${name}"
-  if [[ -d "$dest" ]]; then
-    success "Plugin already installed: ${name}"
-  else
-    info "Installing zsh plugin: ${name}..."
-    git clone --depth 1 "$url" "$dest" &>/dev/null && success "Installed: ${name}"
-  fi
-}
-
-_install_zsh_plugin "zsh-autosuggestions" \
-  "https://github.com/zsh-users/zsh-autosuggestions"
-
-_install_zsh_plugin "zsh-syntax-highlighting" \
-  "https://github.com/zsh-users/zsh-syntax-highlighting"
-
-_install_zsh_plugin "zsh-completions" \
-  "https://github.com/zsh-users/zsh-completions"
-
-_install_zsh_plugin "you-should-use" \
-  "https://github.com/MichaelAquilina/zsh-you-should-use"
-
-# 7d. Install Powerlevel10k
-P10K_DIR="${ZSH_CUSTOM}/themes/powerlevel10k"
-if [[ -d "$P10K_DIR" ]]; then
-  success "Powerlevel10k already installed."
-else
-  info "Installing Powerlevel10k theme..."
-  git clone --depth 1 https://github.com/romkatv/powerlevel10k.git "$P10K_DIR" &>/dev/null
-  success "Powerlevel10k installed."
-fi
-
-# 7e. Write .zshrc
-info "Writing ~/.zshrc..."
-backup_file "$HOME/.zshrc"
-
-cat > "$HOME/.zshrc" << 'ZSHRC_EOF'
-# =============================================================================
-#  ~/.zshrc -- d4c dev environment
-#  Managed by install.sh | github.com/MuhammedZohaib/d4c.nvim
+# 4. WRITE DOTFILES EARLY
+#    .zshrc and .tmux.conf are written HERE, before any optional git clones
+#    that could fail and exit the script under set -euo pipefail
 # =============================================================================
 
-# -- Powerlevel10k instant prompt (must be near top) --------------------------
+# ── 4a. Write ~/.zshrc ────────────────────────────────────────────────────────
+step "Writing ~/.zshrc"
+mkdir -p "$REAL_HOME"
+bak "$REAL_HOME/.zshrc"
+
+cat > "$REAL_HOME/.zshrc" << 'ZSHRC_END'
+# =============================================================================
+#  ~/.zshrc — d4c dev environment
+#  github.com/MuhammedZohaib/d4c.nvim
+# =============================================================================
+
+# Powerlevel10k instant prompt (must stay near top)
 if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
   source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
 fi
@@ -379,10 +243,8 @@ fi
 export ZSH="$HOME/.oh-my-zsh"
 ZSH_THEME="powerlevel10k/powerlevel10k"
 
-# -- Plugins ------------------------------------------------------------------
 plugins=(
-  git
-  sudo
+  git sudo
   colored-man-pages
   command-not-found
   history-substring-search
@@ -395,13 +257,11 @@ plugins=(
 
 source "$ZSH/oh-my-zsh.sh"
 
-# -- Powerlevel10k config -----------------------------------------------------
+# -- Powerlevel10k ------------------------------------------------------------
 [[ -f ~/.p10k.zsh ]] && source ~/.p10k.zsh
 
 # -- PATH ---------------------------------------------------------------------
 export PATH="$HOME/.local/bin:$HOME/bin:/usr/local/bin:$PATH"
-
-# macOS Homebrew (Apple Silicon)
 [[ -f /opt/homebrew/bin/brew ]] && eval "$(/opt/homebrew/bin/brew shellenv)"
 
 # -- Environment --------------------------------------------------------------
@@ -415,24 +275,21 @@ export LC_ALL="en_US.UTF-8"
 HISTSIZE=50000
 SAVEHIST=50000
 HISTFILE="$HOME/.zsh_history"
-setopt HIST_IGNORE_DUPS
-setopt HIST_IGNORE_SPACE
-setopt SHARE_HISTORY
-setopt EXTENDED_HISTORY
+setopt HIST_IGNORE_DUPS HIST_IGNORE_SPACE SHARE_HISTORY EXTENDED_HISTORY
 
 # -- Completion ---------------------------------------------------------------
 autoload -Uz compinit && compinit
 zstyle ':completion:*' menu select
 zstyle ':completion:*' matcher-list 'm:{a-zA-Z}={A-Za-z}'
 
-# -- Key bindings -------------------------------------------------------------
+# -- Keybinds -----------------------------------------------------------------
 bindkey '^[[A' history-substring-search-up
 bindkey '^[[B' history-substring-search-down
-bindkey "^[[H"  beginning-of-line
-bindkey "^[[F"  end-of-line
-bindkey "^[[3~" delete-char
-bindkey "^[[1;5C" forward-word   # Ctrl+Right
-bindkey "^[[1;5D" backward-word  # Ctrl+Left
+bindkey '^[[H' beginning-of-line
+bindkey '^[[F' end-of-line
+bindkey '^[[3~' delete-char
+bindkey '^[[1;5C' forward-word
+bindkey '^[[1;5D' backward-word
 
 # -- Navigation ---------------------------------------------------------------
 alias ..='cd ..'
@@ -443,19 +300,17 @@ alias -- -='cd -'
 alias c='clear'
 alias q='exit'
 
-# -- ls (prefer eza > lsd > ls) -----------------------------------------------
+# -- ls (eza > lsd > ls) ------------------------------------------------------
 if command -v eza &>/dev/null; then
   alias ls='eza --icons --group-directories-first'
   alias ll='eza -lah --icons --git --group-directories-first'
   alias lt='eza --tree --icons -L 2'
-  alias lta='eza --tree --icons -L 3 -a'
 elif command -v lsd &>/dev/null; then
   alias ls='lsd --group-dirs first'
   alias ll='lsd -lah --group-dirs first'
 else
   alias ls='ls --color=auto'
   alias ll='ls -lAh --color=auto'
-  alias la='ls -A --color=auto'
 fi
 
 # -- Git ----------------------------------------------------------------------
@@ -474,7 +329,6 @@ alias gds='git diff --staged'
 alias gco='git checkout'
 alias gcb='git checkout -b'
 alias gb='git branch'
-alias gba='git branch -a'
 alias grb='git rebase'
 alias gst='git stash'
 alias gstp='git stash pop'
@@ -498,14 +352,13 @@ alias td='tmux detach'
 alias tka='tmux kill-server'
 
 # -- System -------------------------------------------------------------------
-alias reload='source ~/.zshrc && echo "zshrc reloaded."'
+alias reload='source ~/.zshrc && echo "reloaded."'
 alias path='echo -e "${PATH//:/\\n}"'
 alias ip='curl -s https://ipinfo.io/ip && echo'
 alias ports='ss -tulpn'
 alias df='df -h'
 alias du='du -sh'
 alias free='free -h'
-alias ps='ps aux'
 alias grep='grep --color=auto'
 alias mkdir='mkdir -pv'
 alias cp='cp -i'
@@ -516,10 +369,10 @@ alias rm='rm -i'
 alias py='python3'
 alias pip='pip3'
 alias serve='python3 -m http.server 8000'
-alias npmg='npm install -g'
 alias nr='npm run'
 alias ni='npm install'
 alias nid='npm install --save-dev'
+alias npmg='npm install -g'
 
 # -- fzf ----------------------------------------------------------------------
 if command -v fzf &>/dev/null; then
@@ -534,89 +387,52 @@ fi
 
 # -- NVM ----------------------------------------------------------------------
 export NVM_DIR="$HOME/.nvm"
-[[ -s "$NVM_DIR/nvm.sh" ]]            && source "$NVM_DIR/nvm.sh"
-[[ -s "$NVM_DIR/bash_completion" ]]   && source "$NVM_DIR/bash_completion"
+[[ -s "$NVM_DIR/nvm.sh" ]]          && source "$NVM_DIR/nvm.sh"
+[[ -s "$NVM_DIR/bash_completion" ]] && source "$NVM_DIR/bash_completion"
 
-# -- Python venv auto-activate on cd -----------------------------------------
+# -- Auto-activate .venv on cd ------------------------------------------------
 autoload -Uz add-zsh-hook
-function _auto_venv() {
-  if [[ -f "$PWD/.venv/bin/activate" ]] && [[ "$VIRTUAL_ENV" != "$PWD/.venv" ]]; then
-    source "$PWD/.venv/bin/activate"
-  fi
+_auto_venv() {
+  [[ -f "$PWD/.venv/bin/activate" && "$VIRTUAL_ENV" != "$PWD/.venv" ]] \
+    && source "$PWD/.venv/bin/activate" || true
 }
 add-zsh-hook chpwd _auto_venv
 
-# -- WSL-specific -------------------------------------------------------------
+# -- WSL ----------------------------------------------------------------------
 if grep -qi microsoft /proc/version 2>/dev/null; then
   export DISPLAY="${DISPLAY:-:0}"
   alias pbcopy='clip.exe'
   alias pbpaste='powershell.exe Get-Clipboard'
   alias open='explorer.exe .'
 fi
+ZSHRC_END
 
-ZSHRC_EOF
+chown "${REAL_USER}:${REAL_USER}" "$REAL_HOME/.zshrc" 2>/dev/null || true
+ok "~/.zshrc written."
 
-success "~/.zshrc written."
+# ── 4b. Write ~/.tmux.conf ────────────────────────────────────────────────────
+step "Writing ~/.tmux.conf"
+bak "$REAL_HOME/.tmux.conf"
 
-# 7f. Change default shell to zsh
-CURRENT_SHELL="$(basename "${SHELL:-bash}")"
-if [[ "$CURRENT_SHELL" != "zsh" ]]; then
-  ZSH_BIN="$(which zsh)"
-  info "Changing default shell: ${CURRENT_SHELL} -> zsh (${ZSH_BIN})"
-  grep -qxF "$ZSH_BIN" /etc/shells 2>/dev/null || echo "$ZSH_BIN" | sudo tee -a /etc/shells &>/dev/null
-  sudo chsh -s "$ZSH_BIN" "$USER" 2>/dev/null \
-    || chsh -s "$ZSH_BIN" 2>/dev/null \
-    || warn "chsh failed -- run manually: sudo chsh -s \$(which zsh) \$USER"
-  success "Default shell changed to zsh. Re-login to apply."
-else
-  success "Default shell is already zsh."
-fi
-
+cat > "$REAL_HOME/.tmux.conf" << 'TMUX_END'
 # =============================================================================
-# 8. TMUX + TPM + CONFIG
-# =============================================================================
-step "Setting up tmux + TPM"
-
-# 8a. Ensure tmux installed
-if ! has tmux; then
-  info "Installing tmux..."
-  $PKG_INSTALL tmux
-fi
-success "tmux: $(tmux -V)"
-
-# 8b. Install TPM
-TPM_DIR="$HOME/.tmux/plugins/tpm"
-if [[ -d "$TPM_DIR" ]]; then
-  success "TPM already installed."
-else
-  info "Installing Tmux Plugin Manager (TPM)..."
-  git clone --depth 1 https://github.com/tmux-plugins/tpm "$TPM_DIR" &>/dev/null
-  success "TPM installed."
-fi
-
-# 8c. Write .tmux.conf
-info "Writing ~/.tmux.conf..."
-backup_file "$HOME/.tmux.conf"
-
-cat > "$HOME/.tmux.conf" << 'TMUX_EOF'
-# =============================================================================
-#  ~/.tmux.conf -- d4c dev environment
-#  Managed by install.sh | github.com/MuhammedZohaib/d4c.nvim
+#  ~/.tmux.conf — d4c dev environment
+#  github.com/MuhammedZohaib/d4c.nvim
 #
 #  Prefix : Ctrl+A
 #  Reload : Prefix + r
-#  Splits : Prefix + |  (vertical)  |  Prefix + -  (horizontal)
-#  Panes  : Ctrl+H/J/K/L (vim-aware navigation)
-#  Zoom   : Prefix + z
-#  Copy   : v (begin) | y (yank) in copy mode
+#  Splits : Prefix+|  Prefix+-
+#  Panes  : Ctrl+H/J/K/L  (Neovim aware)
+#  Zoom   : Prefix+z
+#  Copy   : v = begin  y = yank  (vi mode)
 # =============================================================================
 
-# -- Prefix: Ctrl+A -----------------------------------------------------------
+# -- Prefix -------------------------------------------------------------------
 unbind C-b
 set-option -g prefix C-a
-bind-key C-a send-prefix
+bind-key  C-a send-prefix
 
-# -- Core ---------------------------------------------------------------------
+# -- Core settings ------------------------------------------------------------
 set  -g default-terminal   "tmux-256color"
 set  -ag terminal-overrides ",xterm-256color:RGB"
 set  -g mouse               on
@@ -628,53 +444,49 @@ set  -g renumber-windows    on
 set  -g set-titles          on
 set  -g set-titles-string   "#S | #W"
 set  -g focus-events        on
-
-# No bells
-set -g visual-activity off
-set -g visual-bell     off
-set -g bell-action     none
+set  -g visual-activity     off
+set  -g visual-bell         off
+set  -g bell-action         none
 
 # -- Reload config ------------------------------------------------------------
 bind r source-file ~/.tmux.conf \; display-message " Config reloaded!"
 
-# -- Splits (preserves current path) -----------------------------------------
-unbind '"'; unbind %
+# -- Splits -------------------------------------------------------------------
+unbind '"'
+unbind %
 bind | split-window -h -c "#{pane_current_path}"
 bind - split-window -v -c "#{pane_current_path}"
 bind c new-window      -c "#{pane_current_path}"
 
-# -- Pane navigation (Vim + Neovim aware) -------------------------------------
+# -- Pane navigation (Neovim aware) ------------------------------------------
 is_vim="ps -o state= -o comm= -t '#{pane_tty}' \
-  | grep -iqE '^[^TXZ ]+ +(\\S+\\/)?g?(view|n?vim?x?)(diff)?$'"
+  | grep -iqE '^[^TXZ ]+ +(\S+\/)?g?(view|n?vim?x?)(diff)?$'"
 
 bind-key -n C-h if-shell "$is_vim" 'send-keys C-h' 'select-pane -L'
 bind-key -n C-j if-shell "$is_vim" 'send-keys C-j' 'select-pane -D'
 bind-key -n C-k if-shell "$is_vim" 'send-keys C-k' 'select-pane -U'
 bind-key -n C-l if-shell "$is_vim" 'send-keys C-l' 'select-pane -R'
 
-# Fallback: Prefix+hjkl always works
 bind h select-pane -L
 bind j select-pane -D
 bind k select-pane -U
 bind l select-pane -R
 
-# -- Pane resize (repeatable) -------------------------------------------------
+# -- Pane resize --------------------------------------------------------------
 bind -r H resize-pane -L 5
 bind -r J resize-pane -D 5
 bind -r K resize-pane -U 5
 bind -r L resize-pane -R 5
 
-# -- Windows ------------------------------------------------------------------
+# -- Windows & sessions -------------------------------------------------------
 bind -r n next-window
 bind -r p previous-window
 bind     Tab last-window
 bind     W   choose-tree -Zw
-bind     z   resize-pane -Z    # Toggle zoom
-
-# -- Sessions -----------------------------------------------------------------
-bind S new-session
-bind D detach-client
-bind X confirm-before -p "Kill session #S? [y/n]" kill-session
+bind     z   resize-pane -Z
+bind     S   new-session
+bind     D   detach-client
+bind     X   confirm-before -p "Kill session #S? [y/n]" kill-session
 
 # -- Layouts ------------------------------------------------------------------
 bind M-1 select-layout even-horizontal
@@ -685,72 +497,66 @@ bind M-4 select-layout tiled
 # -- Copy mode (vi) -----------------------------------------------------------
 setw -g mode-keys vi
 bind Enter copy-mode
-bind -T copy-mode-vi v   send -X begin-selection
-bind -T copy-mode-vi C-v send -X rectangle-toggle
-bind -T copy-mode-vi V   send -X select-line
+bind -T copy-mode-vi v     send -X begin-selection
+bind -T copy-mode-vi C-v   send -X rectangle-toggle
+bind -T copy-mode-vi V     send -X select-line
 bind -T copy-mode-vi Escape send -X cancel
 
-# OS-aware yank -- Darwin pbcopy | WSL clip.exe | X11 xclip | Wayland wl-copy
+# OS-aware clipboard
 if-shell 'uname | grep -q Darwin' {
-  bind -T copy-mode-vi y send -X copy-pipe-and-cancel "pbcopy"
+  bind -T copy-mode-vi y               send -X copy-pipe-and-cancel "pbcopy"
   bind -T copy-mode-vi MouseDragEnd1Pane send -X copy-pipe-and-cancel "pbcopy"
 } {
   if-shell 'grep -qi microsoft /proc/version 2>/dev/null' {
-    bind -T copy-mode-vi y send -X copy-pipe-and-cancel "clip.exe"
+    bind -T copy-mode-vi y               send -X copy-pipe-and-cancel "clip.exe"
     bind -T copy-mode-vi MouseDragEnd1Pane send -X copy-pipe-and-cancel "clip.exe"
   } {
     if-shell 'command -v xclip > /dev/null' {
-      bind -T copy-mode-vi y send -X copy-pipe-and-cancel "xclip -in -selection clipboard"
+      bind -T copy-mode-vi y               send -X copy-pipe-and-cancel "xclip -in -selection clipboard"
       bind -T copy-mode-vi MouseDragEnd1Pane send -X copy-pipe-and-cancel "xclip -in -selection clipboard"
     } {
-      bind -T copy-mode-vi y send -X copy-pipe-and-cancel "xsel --clipboard --input"
+      bind -T copy-mode-vi y               send -X copy-pipe-and-cancel "xsel --clipboard --input"
       bind -T copy-mode-vi MouseDragEnd1Pane send -X copy-pipe-and-cancel "xsel --clipboard --input"
     }
   }
 }
 
-# -- Status bar (Catppuccin Mocha palette) ------------------------------------
+# -- Status bar (Catppuccin Mocha) --------------------------------------------
 set -g status on
-set -g status-interval 5
-set -g status-position bottom
-set -g status-justify  left
+set -g status-interval  5
+set -g status-position  bottom
+set -g status-justify   left
 
-BG="#1e1e2e"
-BG2="#313244"
-FG="#cdd6f4"
-ACCENT="#89b4fa"   # blue
-GREEN="#a6e3a1"
-YELLOW="#f9e2af"
-GRAY="#585b70"
-PINK="#f5c2e7"
-
-set -g status-style          "fg=#{FG},bg=#{BG}"
+set -g status-style          "fg=#cdd6f4,bg=#1e1e2e"
 set -g status-left-length    50
 set -g status-right-length   120
 
-set -g status-left  "#[fg=#1e1e2e,bg=#89b4fa,bold] #S #[fg=#89b4fa,bg=#313244]\
-#[fg=#cdd6f4,bg=#313244] #(whoami) #[fg=#313244,bg=#1e1e2e] "
+set -g status-left \
+  "#[fg=#1e1e2e,bg=#89b4fa,bold] #S \
+#[fg=#89b4fa,bg=#313244]\
+#[fg=#cdd6f4,bg=#313244] #(whoami) \
+#[fg=#313244,bg=#1e1e2e] "
 
-set -g status-right "#[fg=#313244,bg=#1e1e2e]\
+set -g status-right \
+  "#[fg=#313244,bg=#1e1e2e]\
 #[fg=#cdd6f4,bg=#313244]  #{pane_current_path} \
 #[fg=#585b70,bg=#313244]| \
 #[fg=#f9e2af,bg=#313244] %H:%M \
 #[fg=#585b70,bg=#313244]| \
-#[fg=#a6e3a1,bg=#313244] %d %b #[fg=#313244,bg=#1e1e2e]"
+#[fg=#a6e3a1,bg=#313244] %d %b \
+#[fg=#313244,bg=#1e1e2e]"
 
 set -g window-status-format         "#[fg=#585b70,bg=#1e1e2e]  #I #W  "
 set -g window-status-current-format "#[fg=#1e1e2e,bg=#89b4fa] #I #W #[fg=#89b4fa,bg=#1e1e2e]"
 
-# Pane borders
 set -g pane-border-style        "fg=#313244"
 set -g pane-active-border-style "fg=#89b4fa"
 set -g pane-border-lines        heavy
 
-# Messages
 set -g message-style         "fg=#1e1e2e,bg=#f9e2af,bold"
 set -g message-command-style "fg=#1e1e2e,bg=#f5c2e7,bold"
 
-# -- Plugins (TPM) ------------------------------------------------------------
+# -- Plugins ------------------------------------------------------------------
 set -g @plugin 'tmux-plugins/tpm'
 set -g @plugin 'tmux-plugins/tmux-sensible'
 set -g @plugin 'tmux-plugins/tmux-resurrect'
@@ -759,7 +565,6 @@ set -g @plugin 'tmux-plugins/tmux-yank'
 set -g @plugin 'christoomey/vim-tmux-navigator'
 set -g @plugin 'tmux-plugins/tmux-open'
 
-# Plugin options
 set -g @resurrect-capture-pane-contents 'on'
 set -g @resurrect-strategy-nvim         'session'
 set -g @continuum-restore               'on'
@@ -767,103 +572,267 @@ set -g @continuum-save-interval         '10'
 set -g @yank_selection_mouse            'clipboard'
 set -g @open-S                          'https://duckduckgo.com/?q='
 
-# -- Initialize TPM (must be LAST line) ---------------------------------------
+# -- TPM (must be last line) --------------------------------------------------
 run '~/.tmux/plugins/tpm/tpm'
+TMUX_END
 
-TMUX_EOF
+chown "${REAL_USER}:${REAL_USER}" "$REAL_HOME/.tmux.conf" 2>/dev/null || true
+ok "~/.tmux.conf written."
 
-success "~/.tmux.conf written."
+# =============================================================================
+# 5. OH MY ZSH + PLUGINS + P10K
+#    All steps here use || warn — nothing here kills the script
+# =============================================================================
+step "Installing Oh My Zsh"
 
-# 8d. Install TPM plugins headlessly
-info "Installing tmux plugins via TPM..."
-if [[ -x "$TPM_DIR/bin/install_plugins" ]]; then
-  tmux new-session -d -s __d4c_tpm 2>/dev/null || true
-  "$TPM_DIR/bin/install_plugins" &>/dev/null \
-    && success "tmux plugins installed." \
-    || warn "TPM install had warnings -- press Prefix+I in tmux to finish."
-  tmux kill-session -t __d4c_tpm 2>/dev/null || true
+OMZ_DIR="$REAL_HOME/.oh-my-zsh"
+if [[ -d "$OMZ_DIR" ]]; then
+  ok "Oh My Zsh already present."
 else
-  warn "TPM bin not found -- press Ctrl+A then I inside tmux to install plugins."
+  RUNZSH=no CHSH=no KEEP_ZSHRC=yes \
+    run_as sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" \
+    2>/dev/null || warn "OMZ install had warnings."
+  ok "Oh My Zsh installed."
+fi
+
+ZSH_CUSTOM="${ZSH_CUSTOM:-${OMZ_DIR}/custom}"
+mkdir -p "${ZSH_CUSTOM}/plugins" "${ZSH_CUSTOM}/themes"
+
+_plugin() {
+  local name="$1" url="$2" dest="${ZSH_CUSTOM}/plugins/${1}"
+  if [[ -d "$dest" ]]; then
+    ok "Plugin already present: ${name}"
+  else
+    info "Plugin: ${name}..."
+    run_as git clone --depth 1 "$url" "$dest" &>/dev/null \
+      && ok "Plugin installed: ${name}" \
+      || warn "Plugin failed: ${name} (non-fatal)"
+  fi
+}
+
+_plugin zsh-autosuggestions    https://github.com/zsh-users/zsh-autosuggestions
+_plugin zsh-syntax-highlighting https://github.com/zsh-users/zsh-syntax-highlighting
+_plugin zsh-completions         https://github.com/zsh-users/zsh-completions
+_plugin you-should-use          https://github.com/MichaelAquilina/zsh-you-should-use
+
+P10K_DIR="${ZSH_CUSTOM}/themes/powerlevel10k"
+if [[ -d "$P10K_DIR" ]]; then
+  ok "Powerlevel10k already present."
+else
+  info "Powerlevel10k..."
+  run_as git clone --depth 1 https://github.com/romkatv/powerlevel10k.git "$P10K_DIR" &>/dev/null \
+    && ok "Powerlevel10k installed." \
+    || warn "Powerlevel10k clone failed (non-fatal)."
 fi
 
 # =============================================================================
-# 9. NEOVIM CONFIG (d4c.nvim)
+# 6. CHANGE DEFAULT SHELL TO ZSH
 # =============================================================================
-step "Cloning d4c.nvim config"
+step "Setting default shell to zsh"
 
-NVIM_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/nvim"
-NVIM_DATA="${XDG_DATA_HOME:-$HOME/.local/share}/nvim"
-NVIM_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/nvim"
-NVIM_STATE="${XDG_STATE_HOME:-$HOME/.local/state}/nvim"
+if ! has zsh; then
+  $PKG_INSTALL zsh 2>/dev/null || warn "zsh install failed."
+fi
 
-for _dir in "$NVIM_CONFIG" "$NVIM_DATA" "$NVIM_CACHE" "$NVIM_STATE"; do
-  if [[ -d "$_dir" ]]; then
-    warn "Backing up ${_dir} -> ${_dir}.bak.${BACKUP_TS}"
-    mv "$_dir" "${_dir}.bak.${BACKUP_TS}"
+_cur_shell="$(basename "${SHELL:-bash}")"
+if [[ "$_cur_shell" == "zsh" ]]; then
+  ok "Shell is already zsh."
+else
+  ZSH_BIN="$(which zsh)"
+  grep -qxF "$ZSH_BIN" /etc/shells 2>/dev/null \
+    || echo "$ZSH_BIN" | sudo tee -a /etc/shells &>/dev/null || true
+  sudo chsh -s "$ZSH_BIN" "$REAL_USER" 2>/dev/null \
+    || chsh -s "$ZSH_BIN" 2>/dev/null \
+    || warn "chsh failed — run: sudo chsh -s \$(which zsh) ${REAL_USER}"
+  ok "Default shell → zsh (re-login to apply)."
+fi
+
+# =============================================================================
+# 7. TMUX + TPM
+# =============================================================================
+step "Installing tmux + TPM"
+
+if ! has tmux; then
+  $PKG_INSTALL tmux 2>/dev/null || warn "tmux install failed."
+fi
+ok "tmux: $(tmux -V)"
+
+TPM_DIR="$REAL_HOME/.tmux/plugins/tpm"
+if [[ -d "$TPM_DIR" ]]; then
+  ok "TPM already present."
+else
+  info "Cloning TPM..."
+  run_as git clone --depth 1 https://github.com/tmux-plugins/tpm "$TPM_DIR" &>/dev/null \
+    && ok "TPM installed." \
+    || warn "TPM clone failed — press Ctrl+A+I inside tmux to install manually."
+fi
+
+# Install plugins headlessly
+if [[ -x "$TPM_DIR/bin/install_plugins" ]]; then
+  info "Installing tmux plugins..."
+  run_as tmux new-session -d -s __d4c_tpm 2>/dev/null || true
+  run_as "$TPM_DIR/bin/install_plugins" &>/dev/null \
+    && ok "tmux plugins installed." \
+    || warn "TPM install had warnings — press Ctrl+A+I to finish."
+  run_as tmux kill-session -t __d4c_tpm 2>/dev/null || true
+else
+  warn "Press Ctrl+A then I inside tmux to install plugins."
+fi
+
+# =============================================================================
+# 8. NODE + PYTHON TOOLS
+# =============================================================================
+step "Node.js + Python tools"
+
+info "npm globals..."
+sudo npm install -g --quiet \
+  neovim tree-sitter-cli \
+  typescript typescript-language-server \
+  vscode-langservers-extracted \
+  "@fsouza/prettierd" bash-language-server \
+  2>/dev/null || warn "Some npm packages failed (non-fatal)."
+
+info "pip packages..."
+run_as pip3 install --user --quiet --upgrade \
+  pynvim neovim black isort ruff \
+  2>/dev/null || warn "Some pip packages failed (non-fatal)."
+
+ok "Node + Python tools done."
+
+# =============================================================================
+# 9. LAZYGIT
+# =============================================================================
+step "Installing lazygit"
+
+if has lazygit; then
+  ok "lazygit already installed."
+else
+  case "$OS" in
+    macos) brew install lazygit || warn "lazygit brew install failed." ;;
+    arch)  $PKG_INSTALL lazygit || warn "lazygit pacman install failed." ;;
+    *)
+      _lgv=$(curl -fsSL https://api.github.com/repos/jesseduffield/lazygit/releases/latest \
+        | grep '"tag_name"' | sed -E 's/.*"v?([^"]+)".*/\1/') || true
+      if [[ -n "${_lgv:-}" ]]; then
+        curl -fsSL "https://github.com/jesseduffield/lazygit/releases/latest/download/lazygit_${_lgv}_Linux_x86_64.tar.gz" \
+          | tar xz -C /tmp lazygit 2>/dev/null \
+          && sudo install /tmp/lazygit /usr/local/bin/lazygit \
+          && ok "lazygit installed." \
+          || warn "lazygit install failed (non-fatal)."
+      else
+        warn "Could not fetch lazygit version (non-fatal)."
+      fi
+      ;;
+  esac
+fi
+
+# =============================================================================
+# 10. NERD FONT — JetBrainsMono
+# =============================================================================
+step "Installing JetBrainsMono Nerd Font"
+
+if [[ "$OS" == "macos" ]]; then
+  if ls ~/Library/Fonts/JetBrainsMonoNerd* &>/dev/null 2>&1; then
+    ok "Font already present."
+  else
+    brew install --cask font-jetbrains-mono-nerd-font 2>/dev/null \
+      && ok "Font installed." \
+      || warn "Font install failed — visit https://nerdfonts.com"
   fi
+else
+  _font_dir="$REAL_HOME/.local/share/fonts/JetBrainsMono"
+  if fc-list 2>/dev/null | grep -qi "JetBrainsMono Nerd"; then
+    ok "Font already present."
+  else
+    mkdir -p "$_font_dir"
+    curl -fsSL \
+      "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.tar.xz" \
+      | tar xJ -C "$_font_dir" 2>/dev/null \
+      && fc-cache -f "$_font_dir" \
+      && ok "JetBrainsMono Nerd Font installed." \
+      || warn "Font download failed — visit https://nerdfonts.com"
+  fi
+fi
+
+# =============================================================================
+# 11. NEOVIM CONFIG (d4c.nvim)
+# =============================================================================
+step "Cloning d4c.nvim"
+
+NVIM_CONFIG="${XDG_CONFIG_HOME}/nvim"
+NVIM_DATA="${XDG_DATA_HOME}/nvim"
+NVIM_CACHE="${XDG_CACHE_HOME}/nvim"
+NVIM_STATE="${XDG_STATE_HOME}/nvim"
+
+info "Target: ${NVIM_CONFIG}"
+
+for _d in "$NVIM_CONFIG" "$NVIM_DATA" "$NVIM_CACHE" "$NVIM_STATE"; do
+  [[ -d "$_d" ]] && run_as mv "$_d" "${_d}.bak.${BACKUP_TS}" && warn "Backed up ${_d}" || true
 done
 
-git clone --depth 1 \
+mkdir -p "$(dirname "$NVIM_CONFIG")"
+run_as git clone --depth 1 \
   "https://github.com/MuhammedZohaib/d4c.nvim.git" \
   "$NVIM_CONFIG"
-success "Cloned to ${NVIM_CONFIG}."
+chown -R "${REAL_USER}:${REAL_USER}" "$NVIM_CONFIG" 2>/dev/null || true
+ok "Cloned to ${NVIM_CONFIG}."
 
-# Bootstrap lazy.nvim
 LAZY_PATH="${NVIM_DATA}/lazy/lazy.nvim"
 if [[ ! -d "$LAZY_PATH" ]]; then
   info "Bootstrapping lazy.nvim..."
-  git clone --filter=blob:none --depth 1 --branch stable \
-    "https://github.com/folke/lazy.nvim.git" "$LAZY_PATH" &>/dev/null
-  success "lazy.nvim bootstrapped."
+  mkdir -p "${NVIM_DATA}/lazy"
+  run_as git clone --filter=blob:none --depth 1 --branch stable \
+    "https://github.com/folke/lazy.nvim.git" "$LAZY_PATH" &>/dev/null \
+    && ok "lazy.nvim bootstrapped." \
+    || warn "lazy.nvim clone failed — it will bootstrap on first nvim open."
+  chown -R "${REAL_USER}:${REAL_USER}" "${NVIM_DATA}" 2>/dev/null || true
 fi
 
-# Headless plugin sync
 info "Headless plugin sync..."
-nvim --headless "+Lazy! sync" +qa 2>/dev/null \
-  && success "Neovim plugins synced." \
-  || warn "Sync had warnings -- open nvim once to finish."
+run_as nvim --headless "+Lazy! sync" +qa 2>/dev/null \
+  && ok "Plugins synced." \
+  || warn "Sync had warnings — open nvim once to finish."
 
 # =============================================================================
-# 10. PATH hygiene
+# 12. PATH HYGIENE
 # =============================================================================
-step "Finalizing PATH"
+step "PATH hygiene"
 
-LOCAL_BIN="$HOME/.local/bin"
+LOCAL_BIN="$REAL_HOME/.local/bin"
 mkdir -p "$LOCAL_BIN"
 
-for _rc in "$HOME/.zshrc" "$HOME/.bashrc"; do
+for _rc in "$REAL_HOME/.zshrc" "$REAL_HOME/.bashrc"; do
   if [[ -f "$_rc" ]] && ! grep -q "$LOCAL_BIN" "$_rc"; then
     echo "export PATH=\"${LOCAL_BIN}:\$PATH\"" >> "$_rc"
+    chown "${REAL_USER}:${REAL_USER}" "$_rc" 2>/dev/null || true
     info "Added ~/.local/bin to PATH in ${_rc}"
   fi
 done
 export PATH="${LOCAL_BIN}:$PATH"
-success "PATH updated."
+ok "PATH updated."
 
 # =============================================================================
 # DONE
 # =============================================================================
 echo ""
 echo -e "${GREEN}${BOLD}============================================================${RESET}"
-echo -e "${GREEN}${BOLD}   d4c dev environment setup complete!${RESET}"
+echo -e "${GREEN}${BOLD}   d4c setup complete!${RESET}"
 echo -e "${GREEN}${BOLD}============================================================${RESET}"
 echo ""
-echo -e "  ${GREEN}OK${RESET}  Neovim         nvim  (${NVIM_CONFIG})"
-echo -e "  ${GREEN}OK${RESET}  d4c.nvim       lazy.nvim, LSP via Mason"
-echo -e "  ${GREEN}OK${RESET}  Zsh            default shell changed"
-echo -e "  ${GREEN}OK${RESET}  Oh My Zsh      theme: powerlevel10k"
-echo -e "  ${GREEN}OK${RESET}  Zsh plugins    autosuggestions, syntax-highlight, completions, you-should-use"
-echo -e "  ${GREEN}OK${RESET}  tmux           prefix: Ctrl+A"
-echo -e "  ${GREEN}OK${RESET}  TPM plugins    resurrect, continuum, yank, vim-tmux-navigator"
-echo -e "  ${GREEN}OK${RESET}  lazygit        lg"
-echo -e "  ${GREEN}OK${RESET}  Nerd Font      JetBrainsMono"
+echo -e "  ${GREEN}OK${RESET}  ~/.zshrc          written"
+echo -e "  ${GREEN}OK${RESET}  ~/.tmux.conf      written"
+echo -e "  ${GREEN}OK${RESET}  ~/.config/nvim    cloned"
+echo -e "  ${GREEN}OK${RESET}  Oh My Zsh         powerlevel10k theme"
+echo -e "  ${GREEN}OK${RESET}  tmux + TPM        Catppuccin status bar"
+echo -e "  ${GREEN}OK${RESET}  lazygit           lg"
+echo -e "  ${GREEN}OK${RESET}  Nerd Font         JetBrainsMono"
 echo ""
-echo -e "  ${BOLD}${YELLOW}Next steps:${RESET}"
-echo -e "  1. ${CYAN}exec zsh${RESET}  (or re-login) to switch to zsh"
-echo -e "  2. Powerlevel10k wizard will run on first terminal open"
-echo -e "  3. Open ${CYAN}tmux${RESET} and press ${CYAN}Ctrl+A + I${RESET} to install plugins"
-echo -e "  4. Run ${CYAN}nvim${RESET} -- Treesitter parsers auto-install"
+echo -e "  ${YELLOW}${BOLD}Next steps:${RESET}"
+echo -e "  1. ${CYAN}exec zsh${RESET}  or re-login for shell change"
+echo -e "  2. ${CYAN}p10k configure${RESET}  to set up prompt"
+echo -e "  3. ${CYAN}tmux${RESET}  then ${CYAN}Ctrl+A + I${RESET}  to install plugins"
+echo -e "  4. ${CYAN}nvim${RESET}  — Treesitter parsers auto-install"
 echo -e "  5. Set terminal font to ${BOLD}JetBrainsMono Nerd Font${RESET}"
 echo ""
-echo -e "  ${DIM}Splits: Prefix+|  Prefix+-  |  Panes: Ctrl+H/J/K/L  |  Reload: Prefix+r${RESET}"
+echo -e "  ${DIM}Splits: Prefix+|  Prefix+-  |  Panes: Ctrl+HJKL  |  Reload: Prefix+r${RESET}"
 echo ""
