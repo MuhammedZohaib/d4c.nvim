@@ -1,16 +1,29 @@
 return {
   {
     "nvim-treesitter/nvim-treesitter",
-    branch = "master", -- keep legacy config API
-    build = ":TSUpdate",
-    lazy = false,
+    branch = "master",
+    build  = ":TSUpdate",
+    -- FIXED: was lazy=false (forced startup load). BufReadPost defers until
+    -- the first file is opened — no visible difference in practice since a file
+    -- is always opened immediately, but startup time is measurably reduced.
+    event  = "BufReadPost",
     dependencies = {
       { "nvim-treesitter/nvim-treesitter-textobjects", branch = "master" },
-      "nvim-treesitter/nvim-treesitter-context",
       "windwp/nvim-ts-autotag",
     },
     config = function()
-      require("nvim-treesitter.configs").setup({
+      local ok, ts_configs = pcall(require, "nvim-treesitter.configs")
+      if not ok then
+        vim.schedule(function()
+          vim.notify(
+            "nvim-treesitter API mismatch detected. Run :Lazy sync to install the pinned master branch.",
+            vim.log.levels.WARN
+          )
+        end)
+        return
+      end
+
+      ts_configs.setup({
         ensure_installed = {
           -- Web
           "html", "css", "javascript", "typescript", "tsx", "json", "jsonc",
@@ -29,11 +42,23 @@ return {
 
           -- Neovim
           "vim", "vimdoc", "query",
+
+          -- Required by noice.nvim for cmdline regex highlighting
+          "regex",
         },
 
-        highlight = { enable = true },
-        indent = { enable = true },
-        auto_install = true,
+        highlight = {
+          enable = true,
+          -- Keep markdown stable with classic syntax highlight.
+          additional_vim_regex_highlighting = { "markdown" },
+          disable = { "markdown", "markdown_inline" },
+        },
+        indent = {
+          enable = true,
+          disable = { "markdown" },
+        },
+        -- Avoid repeated parser install attempts/noise on file open.
+        auto_install = false,
 
         textobjects = {
           select = {
@@ -63,11 +88,6 @@ return {
       })
 
       require("nvim-ts-autotag").setup()
-
-      require("treesitter-context").setup({
-        enable = true,
-        max_lines = 4,
-      })
     end,
   },
 }

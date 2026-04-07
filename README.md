@@ -54,15 +54,15 @@ Also make sure you have: `git`, `ripgrep`, `node/npm`, and a [Nerd Font](https:/
 
 ## Plugins
 
-**57 plugins** managed by `lazy.nvim`, grouped by what they do:
+**55 plugins** managed by `lazy.nvim`, grouped by what they do:
 
 `catppuccin` · `lualine` · `bufferline` · `dashboard-nvim` · `noice.nvim` · `nvim-notify` · `dressing.nvim` · `indent-blankline` · `nvim-colorizer`
 
-`telescope.nvim` · `telescope-fzf-native` · `neo-tree.nvim` · `flash.nvim` · `nvim-spectre` · `nvim-bqf`
+`fzf-lua` · `neo-tree.nvim` · `flash.nvim` · `nvim-spectre` · `nvim-bqf`
 
 `nvim-lspconfig` · `mason.nvim` · `mason-lspconfig` · `lspsaga.nvim` · `nvim-cmp` · `LuaSnip` · `friendly-snippets` · `lspkind`
 
-`nvim-treesitter` · `treesitter-context` · `treesitter-textobjects` · `nvim-ts-autotag`
+`nvim-treesitter` · `treesitter-textobjects` · `nvim-ts-autotag`
 
 `conform.nvim` · `nvim-lint` · `gitsigns.nvim` · `lazygit.nvim` · `git-conflict.nvim`
 
