@@ -6,7 +6,7 @@ return {
 		cmd = "ConformInfo",
 		opts = {
 			formatters_by_ft = {
-				python = { "ruff_fix", "ruff_format" }, -- ruff replaces black + isort
+				python = { "ruff_fix", "ruff_format" },
 				javascript = { "prettier" },
 				typescript = { "prettier" },
 				javascriptreact = { "prettier" },
@@ -19,18 +19,13 @@ return {
 				lua = { "stylua" },
 				sh = { "shfmt" },
 				bash = { "shfmt" },
-				sql = { "sql_formatter", lsp_format = "prefer" },
-			},
-			formatters = {
-				sql_formatter = {
-					command = "sql-formatter",
-					args = { "--language", "postgresql" },
-					stdin = true,
-				},
+				sql = { "sqlfmt" },
 			},
 			format_on_save = {
-				timeout_ms = 3000,
-				lsp_fallback = true,
+				-- FIXED: was 3000ms — reduced to 1500ms for snappier saves.
+				-- Increase per-formatter only if a specific one is slow.
+				timeout_ms = 1500,
+				lsp_format = "fallback", -- lsp_fallback was deprecated in conform v8
 			},
 		},
 	},
@@ -43,20 +38,25 @@ return {
 			local lint = require("lint")
 			lint.linters_by_ft = {
 				python = { "ruff" },
-				javascript = { "eslint_d" },
-				typescript = { "eslint_d" },
-				javascriptreact = { "eslint_d" },
-				typescriptreact = { "eslint_d" },
 				dockerfile = { "hadolint" },
 				yaml = { "yamllint" },
-				markdown = { "markdownlint" },
+				-- FIXED: was "markdownlint" — aligned with the mason package
+				-- "markdownlint-cli2" installed via mason-tool-installer.
+				markdown = { "markdownlint-cli2" },
 			}
-			-- Lint on save and enter
-			vim.api.nvim_create_autocmd({ "BufWritePost", "BufReadPost", "InsertLeave" }, {
+			-- JS/TS diagnostics come from eslint LSP (configured in lsp.lua).
+			-- This avoids eslint_d daemon startup failures (e.g. EMFILE) that
+			-- produce non-JSON output and trigger parse popups in nvim-lint.
+
+			-- FIXED: removed InsertLeave — yamllint and markdownlint-cli2 are slow
+			-- enough that linting on every insert-leave causes noticeable lag.
+			-- BufWritePost + BufReadPost gives full coverage with zero typing overhead.
+			vim.api.nvim_create_autocmd({ "BufWritePost", "BufReadPost" }, {
+				group = vim.api.nvim_create_augroup("nvim-lint", { clear = true }),
 				callback = function()
 					local ft = vim.bo.filetype
 					if lint.linters_by_ft[ft] then
-						lint.try_lint()
+						pcall(lint.try_lint)
 					end
 				end,
 			})

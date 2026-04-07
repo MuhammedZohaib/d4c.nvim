@@ -5,13 +5,13 @@ return {
     dependencies = { "nvim-tree/nvim-web-devicons" },
     opts = {
       options = {
-        theme = "catppuccin",
+        theme = "auto",
         globalstatus      = true,
         section_separators   = { left = "", right = "" },
         component_separators = { left = "", right = "" },
       },
       sections = {
-        lualine_a = { { "mode", icon = "" } },
+        lualine_a = { { "mode", fmt = function(str) return " " .. str end } },
         lualine_b = { "branch", "diff", "diagnostics" },
         lualine_c = { { "filename", path = 1 } },
         lualine_x = {
@@ -70,9 +70,9 @@ return {
           "",
         },
         center = {
-          { icon = "  ", desc = "Find File     ", key = "f", action = "Telescope find_files" },
-          { icon = "  ", desc = "Recent Files  ", key = "r", action = "Telescope oldfiles"   },
-          { icon = "  ", desc = "Grep Text     ", key = "g", action = "Telescope live_grep"  },
+          { icon = "  ", desc = "Find File     ", key = "f", action = "FzfLua files"         },
+          { icon = "  ", desc = "Recent Files  ", key = "r", action = "FzfLua oldfiles"      },
+          { icon = "  ", desc = "Grep Text     ", key = "g", action = "FzfLua live_grep"     },
           { icon = "  ", desc = "Config        ", key = "c", action = "e $MYVIMRC"           },
           { icon = "  ", desc = "Lazy          ", key = "l", action = "Lazy"                 },
           { icon = "  ", desc = "Quit          ", key = "q", action = "qa"                   },
@@ -86,9 +86,11 @@ return {
   {
     "rcarriga/nvim-notify",
     opts = {
-      render   = "compact",
-      stages   = "fade",
-      timeout  = 2000,
+      render    = "compact",
+      -- FIXED: was "fade" — fade adds animation overhead on every notification.
+      -- "static" renders instantly with zero animation cost.
+      stages    = "static",
+      timeout   = 2000,
       max_width = 60,
     },
     config = function(_, opts)
@@ -113,15 +115,34 @@ return {
     },
     opts = {
       lsp = {
-        progress = { enabled = true },
+        progress  = { enabled = true },
+        -- lspsaga owns hover and signature — keep noice out of those paths.
+        -- Confirmed intentional: :checkhealth noice will still warn about
+        -- hover/signature not being handled by Noice; that's expected.
         signature = { enabled = false },
-        hover = { enabled = false },
+        hover     = { enabled = false },
+        -- Override markdown rendering utilities so noice can style LSP
+        -- documentation (e.g. jsonls, pyright hover docs) with its own
+        -- prettier markdown renderer even when hover UI is lspsaga's.
+        -- Fixes the two :checkhealth noice warnings about these functions.
+        override = {
+          ["vim.lsp.util.convert_input_to_markdown_lines"] = true,
+          ["vim.lsp.util.stylize_markdown"]                = true,
+        },
       },
       presets = {
-        bottom_search = true,
-        command_palette = true,
+        bottom_search        = true,
+        command_palette      = true,
         long_message_to_split = true,
-        inc_rename = false,
+        inc_rename           = false,
+      },
+      routes = {
+        -- Suppress "written" / "x lines" file-save messages
+        { filter = { event = "msg_show", kind = "", find = "written" },   opts = { skip = true } },
+        { filter = { event = "msg_show", kind = "", find = "fewer lines" }, opts = { skip = true } },
+        { filter = { event = "msg_show", kind = "", find = "more lines" },  opts = { skip = true } },
+        -- Suppress search-count "x/y" messages that flash on n/N
+        { filter = { event = "msg_show", kind = "search_count" }, opts = { skip = true } },
       },
     },
   },
@@ -155,6 +176,14 @@ return {
   {
     "NvChad/nvim-colorizer.lua",
     event = "BufReadPre",
-    opts  = {},
+    opts  = {
+      user_default_options = {
+        RGB      = true,
+        RRGGBB   = true,
+        names    = false,   -- skip named colors ("Blue") — too noisy
+        css      = true,
+        tailwind = "both",
+      },
+    },
   },
 }
