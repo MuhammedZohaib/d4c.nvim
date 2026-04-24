@@ -1,39 +1,38 @@
 return {
-  -- Status line
   {
     "nvim-lualine/lualine.nvim",
+    event = "VeryLazy",
     dependencies = { "nvim-tree/nvim-web-devicons" },
     opts = {
       options = {
         theme = "auto",
-        globalstatus      = true,
-        section_separators   = { left = "", right = "" },
+        globalstatus = true,
+        section_separators = { left = "", right = "" },
         component_separators = { left = "", right = "" },
+        disabled_filetypes = { statusline = { "neo-tree" } },
       },
       sections = {
         lualine_a = { { "mode", fmt = function(str) return " " .. str end } },
         lualine_b = { "branch", "diff", "diagnostics" },
         lualine_c = { { "filename", path = 1 } },
-        lualine_x = {
-          { "encoding" },
-          { "fileformat" },
-          { "filetype", icon_only = true },
-        },
+        lualine_x = { "encoding", "fileformat", { "filetype", icon_only = true } },
         lualine_y = { "progress" },
         lualine_z = { "location" },
       },
     },
   },
 
-  -- Buffer tabs
   {
     "akinsho/bufferline.nvim",
+    event = "VeryLazy",
     dependencies = { "nvim-tree/nvim-web-devicons" },
     version = "*",
     opts = {
       options = {
-        diagnostics          = "nvim_lsp",
+        diagnostics = "nvim_lsp",
         always_show_bufferline = false,
+        show_buffer_close_icons = false,
+        show_close_icon = false,
         offsets = {
           { filetype = "neo-tree", text = "Explorer", highlight = "Directory", text_align = "center" },
         },
@@ -41,57 +40,27 @@ return {
     },
   },
 
-  -- Indent guides
   {
     "lukas-reineke/indent-blankline.nvim",
+    event = "BufReadPost",
     main = "ibl",
     opts = {
-      indent = { char = "│" },
-      scope  = { enabled = true, show_start = false },
-    },
-  },
-
-  -- Dashboard
-  {
-    "nvimdev/dashboard-nvim",
-    event = "VimEnter",
-    dependencies = { "nvim-tree/nvim-web-devicons" },
-    opts = {
-      theme = "doom",
-      config = {
-        header = {
-          "",
-          "  ███╗   ██╗███████╗ ██████╗ ██╗   ██╗██╗███╗   ███╗",
-          "  ████╗  ██║██╔════╝██╔═══██╗██║   ██║██║████╗ ████║",
-          "  ██╔██╗ ██║█████╗  ██║   ██║██║   ██║██║██╔████╔██║",
-          "  ██║╚██╗██║██╔══╝  ██║   ██║╚██╗ ██╔╝██║██║╚██╔╝██║",
-          "  ██║ ╚████║███████╗╚██████╔╝ ╚████╔╝ ██║██║ ╚═╝ ██║",
-          "  ╚═╝  ╚═══╝╚══════╝ ╚═════╝   ╚═══╝  ╚═╝╚═╝     ╚═╝",
-          "",
-        },
-        center = {
-          { icon = "  ", desc = "Find File     ", key = "f", action = "FzfLua files"         },
-          { icon = "  ", desc = "Recent Files  ", key = "r", action = "FzfLua oldfiles"      },
-          { icon = "  ", desc = "Grep Text     ", key = "g", action = "FzfLua live_grep"     },
-          { icon = "  ", desc = "Config        ", key = "c", action = "e $MYVIMRC"           },
-          { icon = "  ", desc = "Lazy          ", key = "l", action = "Lazy"                 },
-          { icon = "  ", desc = "Quit          ", key = "q", action = "qa"                   },
-        },
-        footer = { "", "  Ready to build something great." },
+      indent = { char = "|" },
+      scope = { enabled = true, show_start = false },
+      exclude = {
+        filetypes = { "help", "lazy", "mason", "neo-tree", "notify", "qf", "terminal" },
       },
     },
   },
 
-  -- Notifications
   {
     "rcarriga/nvim-notify",
+    event = "VeryLazy",
     opts = {
-      render    = "compact",
-      -- FIXED: was "fade" — fade adds animation overhead on every notification.
-      -- "static" renders instantly with zero animation cost.
-      stages    = "static",
-      timeout   = 2000,
-      max_width = 60,
+      render = "compact",
+      stages = "static",
+      timeout = 1800,
+      max_width = 72,
     },
     config = function(_, opts)
       require("notify").setup(opts)
@@ -99,13 +68,115 @@ return {
     end,
   },
 
-  -- Better UI for input/select
   {
     "stevearc/dressing.nvim",
-    opts = {},
+    event = "VeryLazy",
+    opts = {
+      input = { border = "rounded" },
+      select = { backend = { "fzf_lua", "builtin" } },
+    },
   },
 
-  -- Modern command line / message UI
+  {
+    "folke/persistence.nvim",
+    event = "BufReadPre",
+    opts = {},
+    keys = {
+      { "<leader>ps", function() require("persistence").load() end, desc = "Restore session" },
+      { "<leader>pl", function() require("persistence").load({ last = true }) end, desc = "Restore last session" },
+      { "<leader>pd", function() require("persistence").stop() end, desc = "Stop session save" },
+    },
+  },
+
+  {
+    "folke/zen-mode.nvim",
+    cmd = "ZenMode",
+    opts = { window = { width = 0.86 } },
+  },
+
+  {
+    "mbbill/undotree",
+    cmd = "UndotreeToggle",
+  },
+
+  {
+    "goolord/alpha-nvim",
+    event = "VimEnter",
+    dependencies = { "nvim-tree/nvim-web-devicons" },
+    config = function()
+      local alpha = require("alpha")
+      local dashboard = require("alpha.themes.dashboard")
+
+      dashboard.section.header.val = {
+        [[                                                         ]],
+        [[  ██████╗ ██╗  ██╗ ██████╗    ███╗   ██╗██╗   ██╗██╗███╗ ███╗ ]],
+        [[  ██╔══██╗██║  ██║██╔════╝    ████╗  ██║██║   ██║██║████╗████║ ]],
+        [[  ██║  ██║███████║██║         ██╔██╗ ██║██║   ██║██║██╔████╔██║ ]],
+        [[  ██║  ██║╚════██║██║         ██║╚██╗██║╚██╗ ██╔╝██║██║╚██╔╝██║ ]],
+        [[  ██████╔╝     ██║╚██████╗    ██║ ╚████║ ╚████╔╝ ██║██║ ╚═╝ ██║ ]],
+        [[  ╚═════╝      ╚═╝ ╚═════╝    ╚═╝  ╚═══╝  ╚═══╝  ╚═╝╚═╝     ╚═╝ ]],
+        [[                                                         ]],
+        [[              Full-stack editor, crafted to ship.         ]],
+        [[                                                         ]],
+      }
+
+      dashboard.section.buttons.val = {
+        dashboard.button("f", "   Find file",          "<cmd>FzfLua files<CR>"),
+        dashboard.button("r", "   Recent files",       "<cmd>FzfLua oldfiles<CR>"),
+        dashboard.button("g", "   Live grep",          "<cmd>FzfLua live_grep<CR>"),
+        dashboard.button("n", "   New file",           "<cmd>enew<CR>"),
+        dashboard.button("e", "   Explorer",           "<cmd>Neotree toggle<CR>"),
+        dashboard.button("s", "   Restore session",    "<cmd>lua require('persistence').load()<CR>"),
+        dashboard.button("h", "   Project health",     "<cmd>ProjectHealth<CR>"),
+        dashboard.button("l", "󰒲   Lazy",                "<cmd>Lazy<CR>"),
+        dashboard.button("m", "   Mason",               "<cmd>Mason<CR>"),
+        dashboard.button("c", "   Config",             "<cmd>edit ~/.config/nvim/init.lua<CR>"),
+        dashboard.button("q", "   Quit",               "<cmd>qa<CR>"),
+      }
+
+      local function footer()
+        local ok, lazy = pcall(require, "lazy")
+        local count = ok and lazy.stats and lazy.stats().count or 0
+        local ms = ok and lazy.stats and math.floor((lazy.stats().startuptime or 0) + 0.5) or 0
+        return string.format("  %d plugins loaded in %d ms", count, ms)
+      end
+
+      dashboard.section.header.opts.hl = "Keyword"
+      dashboard.section.buttons.opts.hl = "Function"
+      dashboard.section.footer.opts.hl = "Comment"
+      dashboard.opts.layout[1].val = 2
+
+      alpha.setup(dashboard.opts)
+
+      vim.api.nvim_create_autocmd("User", {
+        once = true,
+        pattern = "LazyVimStarted",
+        callback = function()
+          dashboard.section.footer.val = footer()
+          pcall(vim.cmd, "AlphaRedraw")
+        end,
+      })
+
+      vim.api.nvim_create_autocmd("User", {
+        once = true,
+        pattern = "AlphaReady",
+        callback = function()
+          dashboard.section.footer.val = footer()
+          pcall(vim.cmd, "AlphaRedraw")
+        end,
+      })
+
+      vim.api.nvim_create_autocmd("FileType", {
+        pattern = "alpha",
+        callback = function()
+          vim.opt_local.cursorline = false
+          vim.opt_local.foldenable = false
+          vim.opt_local.signcolumn = "no"
+        end,
+      })
+    end,
+  },
+
   {
     "folke/noice.nvim",
     event = "VeryLazy",
@@ -115,73 +186,104 @@ return {
     },
     opts = {
       lsp = {
-        progress  = { enabled = true },
-        -- lspsaga owns hover and signature — keep noice out of those paths.
-        -- Confirmed intentional: :checkhealth noice will still warn about
-        -- hover/signature not being handled by Noice; that's expected.
-        signature = { enabled = false },
-        hover     = { enabled = false },
-        -- Override markdown rendering utilities so noice can style LSP
-        -- documentation (e.g. jsonls, pyright hover docs) with its own
-        -- prettier markdown renderer even when hover UI is lspsaga's.
-        -- Fixes the two :checkhealth noice warnings about these functions.
         override = {
           ["vim.lsp.util.convert_input_to_markdown_lines"] = true,
-          ["vim.lsp.util.stylize_markdown"]                = true,
+          ["vim.lsp.util.stylize_markdown"] = true,
+          ["cmp.entry.get_documentation"] = true,
+        },
+        signature = { enabled = false },
+        hover = { enabled = false },
+      },
+      cmdline = {
+        view = "cmdline_popup",
+        format = {
+          cmdline = { pattern = "^:", icon = "", lang = "vim" },
+          search_down = { kind = "search", pattern = "^/", icon = " ", lang = "regex" },
+          search_up = { kind = "search", pattern = "^%?", icon = " ", lang = "regex" },
         },
       },
+      messages = {
+        enabled = true,
+        view_search = false,
+      },
+      popupmenu = { enabled = true, backend = "nui" },
       presets = {
-        bottom_search        = true,
-        command_palette      = true,
+        bottom_search = false,
+        command_palette = true,
         long_message_to_split = true,
-        inc_rename           = false,
+        inc_rename = false,
+        lsp_doc_border = true,
       },
       routes = {
-        -- Suppress "written" / "x lines" file-save messages
-        { filter = { event = "msg_show", kind = "", find = "written" },   opts = { skip = true } },
-        { filter = { event = "msg_show", kind = "", find = "fewer lines" }, opts = { skip = true } },
-        { filter = { event = "msg_show", kind = "", find = "more lines" },  opts = { skip = true } },
-        -- Suppress search-count "x/y" messages that flash on n/N
-        { filter = { event = "msg_show", kind = "search_count" }, opts = { skip = true } },
+        {
+          filter = { event = "msg_show", any = {
+            { find = "written" },
+            { find = "%d+L, %d+B" },
+            { find = "%d+ changes?;" },
+            { find = "%-%-No lines in buffer%-%-" },
+          } },
+          opts = { skip = true },
+        },
       },
     },
   },
 
-  -- Restore previous sessions
   {
-    "folke/persistence.nvim",
-    event = "BufReadPre",
-    opts = {},
-    keys = {
-      { "<leader>ps", function() require("persistence").load() end, desc = "Restore Session" },
-      { "<leader>pl", function() require("persistence").load({ last = true }) end, desc = "Restore Last Session" },
-      { "<leader>pd", function() require("persistence").stop() end, desc = "Stop Session Save" },
-    },
+    "karb94/neoscroll.nvim",
+    event = "VeryLazy",
+    config = function()
+      local neoscroll = require("neoscroll")
+      neoscroll.setup({
+        mappings = {}, -- declare below for full control
+        hide_cursor = true,
+        stop_eof = true,
+        respect_scrolloff = false,
+        cursor_scrolls_alongside = true,
+        easing_function = "sine",
+        pre_hook = nil,
+        post_hook = nil,
+        performance_mode = false,
+      })
+
+      local keymap = {
+        ["<C-u>"] = function() neoscroll.ctrl_u({ duration = 160 }) end,
+        ["<C-d>"] = function() neoscroll.ctrl_d({ duration = 160 }) end,
+        ["<C-b>"] = function() neoscroll.ctrl_b({ duration = 350 }) end,
+        ["<C-f>"] = function() neoscroll.ctrl_f({ duration = 350 }) end,
+        ["<C-y>"] = function() neoscroll.scroll(-0.1, { move_cursor = false, duration = 80 }) end,
+        ["<C-e>"] = function() neoscroll.scroll(0.1,  { move_cursor = false, duration = 80 }) end,
+        ["zt"]    = function() neoscroll.zt({ half_win_duration = 180 }) end,
+        ["zz"]    = function() neoscroll.zz({ half_win_duration = 180 }) end,
+        ["zb"]    = function() neoscroll.zb({ half_win_duration = 180 }) end,
+      }
+      for k, fn in pairs(keymap) do
+        vim.keymap.set({ "n", "v", "x" }, k, fn, { silent = true, desc = "Smooth scroll " .. k })
+      end
+    end,
   },
 
-  -- Zen mode
-  {
-    "folke/zen-mode.nvim",
-    cmd  = "ZenMode",
-    opts = { window = { width = 0.85 } },
-  },
-
-  -- Undo tree
-  {
-    "mbbill/undotree",
-    cmd = "UndotreeToggle",
-  },
-
-  -- Colorize hex/rgb codes
   {
     "NvChad/nvim-colorizer.lua",
-    event = "BufReadPre",
-    opts  = {
+    ft = {
+      "css",
+      "scss",
+      "sass",
+      "javascript",
+      "javascriptreact",
+      "typescript",
+      "typescriptreact",
+      "html",
+      "json",
+      "jsonc",
+      "yaml",
+      "markdown",
+    },
+    opts = {
       user_default_options = {
-        RGB      = true,
-        RRGGBB   = true,
-        names    = false,   -- skip named colors ("Blue") — too noisy
-        css      = true,
+        RGB = true,
+        RRGGBB = true,
+        names = false,
+        css = true,
         tailwind = "both",
       },
     },

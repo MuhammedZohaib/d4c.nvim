@@ -6,4 +6,5 @@ pcall(vim.loader.enable) -- bytecode cache for faster startup on 0.9+
 require("core.options")
 require("core.keymaps")
 require("core.autocmds")
+require("core.project_health").setup()
 require("core.lazy") -- Plugin manager bootstrap
