@@ -1,140 +1,111 @@
 return {
-	-- Surround text objects
-	{
-		"kylechui/nvim-surround",
-		version = "*",
-		event   = "VeryLazy",
-		opts    = {},
-	},
+  {
+    "kylechui/nvim-surround",
+    version = "*",
+    event = "VeryLazy",
+    opts = {},
+  },
 
-	-- Comment toggle
-	{
-		"numToStr/Comment.nvim",
-		event = "BufReadPost",
-		opts  = {},
-	},
+  {
+    "numToStr/Comment.nvim",
+    event = "BufReadPost",
+    opts = {},
+  },
 
-	-- Multi-cursor search/replace
-	{
-		"nvim-pack/nvim-spectre",
-		cmd  = "Spectre",
-		keys = {
-			{ "<leader>S",  function() require("spectre").open() end,                              desc = "Spectre (replace)" },
-			{ "<leader>sw", function() require("spectre").open_visual({ select_word = true }) end, desc = "Spectre word" },
-		},
-		opts = {},
-	},
+  {
+    "nvim-pack/nvim-spectre",
+    cmd = "Spectre",
+    keys = {
+      { "<leader>S", function() require("spectre").open() end, desc = "Replace in project" },
+      { "<leader>sw", function() require("spectre").open_visual({ select_word = true }) end, desc = "Replace word" },
+    },
+    opts = {},
+  },
 
-	-- Better f/t motions
-	{
-		"folke/flash.nvim",
-		event = "VeryLazy",
-		opts  = {},
-		keys  = {
-			-- INTENTIONAL: s/S override vim's native substitute (s=cl, S=^C).
-			-- flash.nvim's jump/treesitter-select are more useful in practice.
-			-- The original substitute behavior is available via `cl` / `^C`.
-			{ "s", mode = { "n", "x", "o" }, function() require("flash").jump() end,       desc = "Flash" },
-			{ "S", mode = { "n", "x", "o" }, function() require("flash").treesitter() end, desc = "Flash Treesitter" },
-			{ "r", mode = "o",               function() require("flash").remote() end,      desc = "Remote Flash" },
-			-- <C-s> in cmdline mode only — no conflict with LSP <C-s> in normal mode
-			{ "<C-s>", mode = { "c" },       function() require("flash").toggle() end,      desc = "Toggle Flash Search" },
-		},
-	},
+  {
+    "folke/flash.nvim",
+    event = "VeryLazy",
+    opts = {
+      modes = {
+        char = { enabled = true },
+        search = { enabled = true },
+      },
+    },
+    keys = {
+      { "s", mode = { "n", "x", "o" }, function() require("flash").jump() end, desc = "Flash" },
+      { "S", mode = { "n", "x", "o" }, function() require("flash").treesitter() end, desc = "Flash Treesitter" },
+      { "r", mode = "o", function() require("flash").remote() end, desc = "Remote Flash" },
+      { "<C-s>", mode = { "c" }, function() require("flash").toggle() end, desc = "Toggle Flash Search" },
+    },
+  },
 
-	-- Which-key: keybinding popup
-	{
-		"folke/which-key.nvim",
-		event = "VeryLazy",
-		opts  = {
-			preset = "modern",
-				spec = {
-					{ "<leader>f",  group = "Find/FzfLua" },
-				{ "<leader>l",  group = "LSP" },
-				{ "<leader>g",  group = "Git" },
-				{ "<leader>t",  group = "Terminal/REPL" },
-				{ "<leader>p",  group = "Persistence" },
-				{ "<leader>d",  group = "Diagnostics" },
+  {
+    "folke/which-key.nvim",
+    event = "VeryLazy",
+    opts = {
+      preset = "modern",
+      spec = {
+        { "<leader>b", group = "Buffers" },
+        { "<leader>c", group = "Code" },
+        { "<leader>e", group = "Env/Explorer" },
+        { "<leader>f", group = "Find" },
+        { "<leader>g", group = "Git" },
+        { "<leader>h", group = "Harpoon" },
+        { "<leader>m", group = "Markdown" },
+        { "<leader>n", group = "Packages" },
+        { "<leader>p", group = "Persistence/Paste" },
+        { "<leader>r", group = "Routes/REST" },
+        { "<leader>s", group = "Splits/Search" },
+        { "<leader>t", group = "Terminal/Tasks/TypeScript" },
+        { "<leader>ts", group = "TypeScript" },
+        { "<leader>x", group = "Diagnostics" },
+      },
+    },
+  },
 
-				-- FIXED: <leader>x stays as Trouble/Diag group.
-				-- Buffer close moved from <leader>x to <leader>bd (see keymaps.lua).
-				{ "<leader>x",  group = "Trouble/Diag" },
+  {
+    "kevinhwang91/nvim-ufo",
+    dependencies = "kevinhwang91/promise-async",
+    event = "BufReadPost",
+    init = function()
+      vim.o.foldmethod = "manual"
+      vim.o.foldlevel = 99
+      vim.o.foldlevelstart = 99
+      vim.o.foldenable = true
+    end,
+    keys = {
+      { "zR", function() require("ufo").openAllFolds() end, desc = "Open all folds" },
+      { "zM", function() require("ufo").closeAllFolds() end, desc = "Close all folds" },
+    },
+    opts = {
+      provider_selector = function(_, filetype)
+        if filetype == "markdown" then
+          return { "indent" }
+        end
+        return { "treesitter", "indent" }
+      end,
+    },
+  },
 
-				-- Buffer group (new — covers <leader>bd and <leader>bo)
-				{ "<leader>b",  group = "Buffer" },
-				{ "<leader>bd", desc  = "Close buffer" },
-				{ "<leader>bo", desc  = "Close other buffers" },
+  {
+    "folke/todo-comments.nvim",
+    dependencies = "nvim-lua/plenary.nvim",
+    event = "BufReadPost",
+    opts = {},
+    keys = {
+      { "<leader>ft", "<cmd>TodoFzfLua<CR>", desc = "Todo comments" },
+      { "]t", function() require("todo-comments").jump_next() end, desc = "Next todo" },
+      { "[t", function() require("todo-comments").jump_prev() end, desc = "Previous todo" },
+    },
+  },
 
-				-- Splits group — <leader>sv/<leader>sh are here.
-				-- <leader>sw (Spectre word) also starts with <leader>s but shows
-				-- with its own desc so it's self-documenting in the popup.
-				{ "<leader>s",  group = "Split" },
+  { "kevinhwang91/nvim-bqf", event = "FileType qf" },
 
-				-- Git hunk keys are set inside gitsigns on_attach (per-buffer).
-				-- Registering them here makes them visible in which-key globally.
-				{ "<leader>h",  group = "Git Hunks" },
-				{ "<leader>hs", desc  = "Stage hunk (visual)" },
-				{ "<leader>hr", desc  = "Reset hunk (visual)" },
-				{ "<leader>hS", desc  = "Stage buffer" },
-				{ "<leader>hu", desc  = "Undo stage hunk" },
-				{ "<leader>hR", desc  = "Reset buffer" },
-				{ "<leader>hd", desc  = "Diff this" },
-			},
-		},
-	},
-
-	-- Better folding
-	{
-		"kevinhwang91/nvim-ufo",
-		dependencies = "kevinhwang91/promise-async",
-		event = "BufReadPost",
-		-- FIXED: ufo must own folding entirely. Set fold options before ufo
-		-- initialises so there's no window with foldmethod=expr at attach time.
-		init = function()
-			vim.o.foldmethod     = "manual"
-			vim.o.foldlevel      = 99
-			vim.o.foldlevelstart = 99
-			vim.o.foldenable     = true
-		end,
-		keys = {
-			{ "zR", function() require("ufo").openAllFolds()  end, desc = "Open All Folds" },
-			{ "zM", function() require("ufo").closeAllFolds() end, desc = "Close All Folds" },
-		},
-		opts = {
-			provider_selector = function(_, filetype)
-				if filetype == "markdown" then
-					return { "indent" }
-				end
-				return { "treesitter", "indent" }
-			end,
-		},
-	},
-
-	-- Highlight todo/fixme/hack comments
-	{
-		"folke/todo-comments.nvim",
-		dependencies = "nvim-lua/plenary.nvim",
-		event = "BufReadPost",
-		opts  = {},
-			keys  = {
-				{ "<leader>ft", "<cmd>TodoFzfLua<CR>", desc = "Todo Comments" },
-			{ "]t", function() require("todo-comments").jump_next() end, desc = "Next Todo" },
-			{ "[t", function() require("todo-comments").jump_prev() end, desc = "Prev Todo" },
-		},
-	},
-
-	-- Smooth scrolling
-	{ "karb94/neoscroll.nvim", event = "VeryLazy", opts = { mappings = { "<C-u>", "<C-d>", "<C-b>", "<C-f>" } } },
-
-	-- Better quickfix
-	{ "kevinhwang91/nvim-bqf", event = "FileType qf" },
-
-	-- Markdown preview (opens in browser)
-	{
-		"iamcco/markdown-preview.nvim",
-		cmd   = { "MarkdownPreviewToggle", "MarkdownPreview", "MarkdownPreviewStop" },
-		build = "cd app && yarn install",
-		ft    = { "markdown" },
-		keys  = { { "<leader>mp", "<cmd>MarkdownPreviewToggle<CR>", desc = "Markdown Preview" } },
-	},
+  {
+    "iamcco/markdown-preview.nvim",
+    cmd = { "MarkdownPreviewToggle", "MarkdownPreview", "MarkdownPreviewStop" },
+    build = "cd app && npm install",
+    ft = { "markdown" },
+    keys = { { "<leader>mp", "<cmd>MarkdownPreviewToggle<CR>", desc = "Markdown preview" } },
+  },
 }

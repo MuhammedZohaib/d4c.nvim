@@ -1,77 +1,95 @@
-<div align="center">
+# d4c.nvim
 
-# ✦ d4c.nvim
+A focused Neovim config for TypeScript/JavaScript, Python, shell, Markdown, Docker, CSS, and full-stack web work.
 
-**Dirty Deeds Done Dirt Cheap.**
-_A modular Neovim config that works in every dimension._
+## Stack
 
-[![Neovim](https://img.shields.io/badge/nvim-0.10+-57A143?style=flat-square&logo=neovim&logoColor=white)](https://neovim.io)
-[![Lua](https://img.shields.io/badge/lua-5.1-2C2D72?style=flat-square&logo=lua&logoColor=white)](https://lua.org)
-[![lazy.nvim](https://img.shields.io/badge/plugin_manager-lazy.nvim-fb4d3d?style=flat-square)](https://github.com/folke/lazy.nvim)
-[![catppuccin](https://img.shields.io/badge/theme-catppuccin-cba6f7?style=flat-square)](https://github.com/catppuccin/nvim)
-
-</div>
-
----
+- Plugin manager: lazy.nvim
+- Theme: gruvbox-material
+- Search: fzf-lua + ripgrep
+- LSP: TypeScript tools, ESLint, Pyright, Ruff, Bash, Docker, JSON, YAML, HTML, CSS, Tailwind
+- Formatting: conform.nvim with Prettier/Prettierd, Ruff, Shfmt, Stylua
+- Linting: shellcheck, hadolint, markdownlint-cli2
+- Local tools: ghost-twins, stack-tasks, route-lens, env-sentinel
 
 ## Structure
 
-```
+```text
 ~/.config/nvim/
-├── init.lua          ← loads the four core modules
-└── lua/core/
-    ├── options.lua   ← editor settings
-    ├── keymaps.lua   ← key bindings
-    ├── autocmds.lua  ← autocommands
-    └── lazy.lua      ← plugin bootstrap & specs
+├── init.lua
+├── lua/core/
+│   ├── options.lua
+│   ├── keymaps.lua
+│   ├── autocmds.lua
+│   ├── lazy.lua
+│   └── project_health.lua
+├── lua/plugins/
+│   └── *.lua
+├── lua/ghost_twins/
+├── lua/stack_tasks/
+├── lua/route_lens/
+└── lua/env_sentinel/
 ```
 
----
+## Local Plugins
 
-## Install
+- `ghost-twins.nvim`: Treesitter structural clone detection with grouped highlights.
+- `stack-tasks.nvim`: project-aware task picker and runner for npm/pnpm/yarn/bun, Python, Docker, and REPLs.
+- `route-lens.nvim`: API route discovery for Express/Fastify/Nest/FastAPI/Next-style routes.
+- `env-sentinel.nvim`: compares `.env.example` against local env files and reports missing/duplicate keys without displaying secret values.
+
+## Useful Keys
+
+- `<leader>ff`: files
+- `<leader>fg`: live grep
+- `<leader>cf`: format
+- `<leader>ct`: scan ghost twins
+- `<leader>tr`: pick project task
+- `<leader>rl`: find routes
+- `<leader>ee`: env sentinel
+- `<leader>xi`: project health dashboard
+- `<leader>gg`: lazygit
+- `<leader>rr`: run HTTP request in `.http` files
+
+## External Tools
+
+Install these manually for the best experience:
 
 ```bash
-# back up if needed
-mv ~/.config/nvim ~/.config/nvim.bak
-
-# clone
-git clone https://github.com/MuhammedZohaib/d4c.nvim ~/.config/nvim
-
-# open nvim — lazy.nvim self-installs, then Mason handles the rest
-nvim
+brew install ripgrep fd git node pnpm python docker shellcheck hadolint shfmt stylua lazygit
+npm install -g markdownlint-cli2
+python3 -m pip install --user ipython pytest ruff
 ```
 
-**Hard deps** — install these manually, everything else is auto-managed by Mason:
+A Nerd Font is required for dashboard icons, lualine, bufferline, and neo-tree (e.g. `brew install --cask font-jetbrains-mono-nerd-font`).
+
+Mason also manages the configured LSP servers and formatter/linter binaries where available. After changing plugin specs, run `:Lazy sync` and `:Mason` inside Neovim.
+
+## UI Additions
+
+- `alpha-nvim` dashboard on blank start (`f`, `r`, `g`, `n`, `e`, `s`, `h`, `l`, `m`, `c`, `q`).
+- `noice.nvim` command palette and cmdline popup with `nvim-notify`.
+- `mini.animate` lightweight scroll animation only (cursor/resize disabled for speed).
+
+## Zero-Error Verification
+
+Run these after any change to confirm a clean state:
+
+```vim
+:checkhealth
+:Lazy health
+:Lazy sync
+:Mason
+:TSUpdate
+:messages
+:lua =vim.diagnostic.config()
+```
+
+A cold smoke test (no state, just load the config and exit):
 
 ```bash
-python3 -m pip install --user ipython  # python REPL  (<leader>tp)
-brew install yarn                       # markdown preview
+nvim --headless -u ~/.config/nvim/init.lua \
+  "+lua vim.defer_fn(function() vim.cmd('qa!') end, 3000)" 2>&1 | grep -iE "error|deprec|fail"
 ```
 
-Also make sure you have: `git`, `ripgrep`, `node/npm`, and a [Nerd Font](https://www.nerdfonts.com/).
-
----
-
-## Plugins
-
-**55 plugins** managed by `lazy.nvim`, grouped by what they do:
-
-`catppuccin` · `lualine` · `bufferline` · `dashboard-nvim` · `noice.nvim` · `nvim-notify` · `dressing.nvim` · `indent-blankline` · `nvim-colorizer`
-
-`fzf-lua` · `neo-tree.nvim` · `flash.nvim` · `nvim-spectre` · `nvim-bqf`
-
-`nvim-lspconfig` · `mason.nvim` · `mason-lspconfig` · `lspsaga.nvim` · `nvim-cmp` · `LuaSnip` · `friendly-snippets` · `lspkind`
-
-`nvim-treesitter` · `treesitter-textobjects` · `nvim-ts-autotag`
-
-`conform.nvim` · `nvim-lint` · `gitsigns.nvim` · `lazygit.nvim` · `git-conflict.nvim`
-
-`nvim-autopairs` · `nvim-surround` · `Comment.nvim` · `nvim-ufo` · `todo-comments` · `undotree` · `zen-mode.nvim` · `toggleterm.nvim` · `persistence.nvim` · `which-key.nvim` · `trouble.nvim` · `markdown-preview.nvim`
-
----
-
-<div align="center">
-
-_"The thing about D4C — it works in every world."_
-
-</div>
+Expect empty output. Any line is a regression.

@@ -2,11 +2,8 @@ return {
   {
     "nvim-treesitter/nvim-treesitter",
     branch = "master",
-    build  = ":TSUpdate",
-    -- FIXED: was lazy=false (forced startup load). BufReadPost defers until
-    -- the first file is opened — no visible difference in practice since a file
-    -- is always opened immediately, but startup time is measurably reduced.
-    event  = "BufReadPost",
+    build = ":TSUpdate",
+    event = { "BufReadPre", "BufNewFile" },
     dependencies = {
       { "nvim-treesitter/nvim-treesitter-textobjects", branch = "master" },
       "windwp/nvim-ts-autotag",
@@ -15,51 +12,43 @@ return {
       local ok, ts_configs = pcall(require, "nvim-treesitter.configs")
       if not ok then
         vim.schedule(function()
-          vim.notify(
-            "nvim-treesitter API mismatch detected. Run :Lazy sync to install the pinned master branch.",
-            vim.log.levels.WARN
-          )
+          vim.notify("nvim-treesitter API mismatch. Run :Lazy sync.", vim.log.levels.WARN)
         end)
         return
       end
 
       ts_configs.setup({
         ensure_installed = {
-          -- Web
-          "html", "css", "javascript", "typescript", "tsx", "json", "jsonc",
-
-          -- Python / ML
-          "python", "toml",
-
-          -- Config / DevOps
-          "yaml", "dockerfile", "terraform", "hcl", "bash", "make",
-
-          -- Markup / Docs
-          "markdown", "markdown_inline", "rst",
-
-          -- Languages
-          "lua", "go", "rust", "sql",
-
-          -- Neovim
-          "vim", "vimdoc", "query",
-
-          -- Required by noice.nvim for cmdline regex highlighting
+          "bash",
+          "css",
+          "dockerfile",
+          "html",
+          "javascript",
+          "json",
+          "jsonc",
+          "lua",
+          "markdown",
+          "markdown_inline",
+          "python",
+          "query",
           "regex",
+          "toml",
+          "tsx",
+          "typescript",
+          "vim",
+          "vimdoc",
+          "yaml",
         },
-
+        auto_install = false,
         highlight = {
           enable = true,
-          -- Keep markdown stable with classic syntax highlight.
           additional_vim_regex_highlighting = { "markdown" },
           disable = { "markdown", "markdown_inline" },
         },
         indent = {
           enable = true,
-          disable = { "markdown" },
+          disable = { "markdown", "python" },
         },
-        -- Avoid repeated parser install attempts/noise on file open.
-        auto_install = false,
-
         textobjects = {
           select = {
             enable = true,
@@ -87,7 +76,13 @@ return {
         },
       })
 
-      require("nvim-ts-autotag").setup()
+      require("nvim-ts-autotag").setup({
+        opts = {
+          enable_close = true,
+          enable_rename = true,
+          enable_close_on_slash = true,
+        },
+      })
     end,
   },
 }
